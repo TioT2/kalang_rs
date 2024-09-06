@@ -53,14 +53,14 @@ pub struct Module {
 
 impl Module {
     pub fn parse(source: &str) -> Option<Module> {
-        fn ty<'t>(str: &'t str) -> PResult<'t, Type> {
+        fn ty<'t>(str: &'t str) -> PResult<'t, &'t str, Type> {
             any((
                 map(comb::literal("i32"), |_| Type::I32),
                 map(comb::literal("f32"), |_| Type::F32),
             ))(str)
         }
 
-        fn ident<'t>(str: &'t str) -> PResult<'t, String> {
+        fn ident<'t>(str: &'t str) -> PResult<'t, &'t str, String> {
             repeat(
                 filter(comb::any_char, |v| v.is_alphabetic()),
                 String::new,
@@ -71,7 +71,7 @@ impl Module {
             )(str)
         }
 
-        fn whitespace<'t>(source: &'t str) -> PResult<'t, ()> {
+        fn whitespace<'t>(source: &'t str) -> PResult<'t, &'t str, ()> {
             repeat(
                 comb::any_whitespace,
                 || (),
@@ -79,7 +79,7 @@ impl Module {
             )(source)
         }
 
-        fn surround_whitespace<'t, T>(parser: impl Parser<'t, T>) -> impl Parser<'t, T> {
+        fn surround_whitespace<'t, T>(parser: impl Parser<'t, &'t str, T>) -> impl Parser<'t, &'t str, T> {
             map(
                 all((
                     whitespace,

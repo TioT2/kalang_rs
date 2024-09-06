@@ -4,28 +4,28 @@ mod any;
 pub use all::*;
 pub use any::*;
 
-pub type PResult<'t, O> = Result<(&'t str, O), &'t str>;
+pub type PResult<'t, D, O> = Result<(D, O), D>;
 
-pub trait Parser<'t, O>: Fn(&'t str) -> PResult<'t, O> {
+pub trait Parser<'t, D: 't, O>: Fn(D) -> PResult<'t, D, O> {
 }
 
-impl<'t, O, F: Fn(&'t str) -> PResult<'t, O>> Parser<'t, O> for F {
+impl<'t, D: 't, O, F: Fn(D) -> PResult<'t, D, O>> Parser<'t, D, O> for F {
 }
 
-pub fn map<'t, I, O>(
-    parser: impl Parser<'t, I>,
+pub fn map<'t, D: 't, I, O>(
+    parser: impl Parser<'t, D, I>,
     f: impl Fn(I) -> O
-) -> impl Parser<'t, O> {
-    move |str: &'t str| -> PResult<'t, O> {
+) -> impl Parser<'t, D, O> {
+    move |str: D| -> PResult<'t, D, O> {
         parser(str).map(|(s, i)| (s, f(i)))
     }
 }
 
-pub fn filter<'t, O>(
-    parser: impl Parser<'t, O>,
+pub fn filter<'t, D: 't + Copy, O>(
+    parser: impl Parser<'t, D, O>,
     f: impl Fn(&O) -> bool
-) -> impl Parser<'t, O> {
-    move |str: &'t str| -> PResult<'t, O> {
+) -> impl Parser<'t, D, O> {
+    move |str: D| -> PResult<'t, D, O> {
         if let Ok((s, o)) = parser(str) {
             if f(&o) {
                 return Ok((s, o));
@@ -38,8 +38,8 @@ pub fn filter<'t, O>(
 
 pub fn literal<'t>(
     literal: &'static str
-) -> impl Parser<'t, ()> {
-    move |str: &'t str| -> PResult<'t, ()> {
+) -> impl Parser<'t, &'t str, ()> {
+    move |str: &'t str| -> PResult<'t, &'t str, ()> {
         if str.starts_with(literal) {
             Ok((&str[literal.len()..], ()))
         } else {
@@ -48,12 +48,12 @@ pub fn literal<'t>(
     }
 }
 
-pub fn repeat<'t, T, O>(
-    parser: impl Parser<'t, T>,
+pub fn repeat<'t, D: 't + Copy, T, O>(
+    parser: impl Parser<'t, D, T>,
     initializer: impl Fn() -> O,
     fold_fn: impl Fn(O, T) -> O
-) -> impl Parser<'t, O> {
-    move |mut str: &'t str| -> PResult<'t, O> {
+) -> impl Parser<'t, D, O> {
+    move |mut str: D| -> PResult<'t, D, O> {
         let mut result = initializer();
 
         loop {
@@ -67,13 +67,13 @@ pub fn repeat<'t, T, O>(
     }
 }
 
-pub fn repeat_with_separator<'t, T, O>(
-    value: impl Parser<'t, T>,
-    separator: impl Parser<'t, ()>,
+pub fn repeat_with_separator<'t, D: 't + Copy, T, O>(
+    value: impl Parser<'t, D, T>,
+    separator: impl Parser<'t, D, ()>,
     initializer: impl Fn() -> O,
     fold_fn: impl Fn(O, T) -> O
-) -> impl Parser<'t, O> {
-    move |str: &'t str| -> PResult<'t, O> {
+) -> impl Parser<'t, D, O> {
+    move |str: D| -> PResult<'t, D, O> {
         let mut result = initializer();
 
         let Ok((str, first)) = value(str) else {
@@ -103,8 +103,8 @@ pub fn repeat_with_separator<'t, T, O>(
 pub fn integer<'t>(
     base: u64,
     char_to_number: impl Fn(char) -> Option<u64>
-) -> impl Parser<'t, u64> {
-    move |str: &'t str| -> PResult<'t, u64> {
+) -> impl Parser<'t, &'t str, u64> {
+    move |str: &'t str| -> PResult<'t, &'t str, u64> {
         let mut digits = str
             .chars()
             .map(|char| (char.len_utf8(), char_to_number(char)))
@@ -124,14 +124,14 @@ pub fn integer<'t>(
     }
 }
 
-pub fn any_char(input: &str) -> PResult<char> {
+pub fn any_char<'t>(input: &'t str) -> PResult<&'t str, char> {
     match input.chars().next() {
         Some(next) => Ok((&input[next.len_utf8()..], next)),
         None => Err(input),
     }
 }
 
-pub fn any_whitespace(input: &str) -> PResult<char> {
+pub fn any_whitespace<'t>(input: &'t str, ) -> PResult<&'t str, char> {
     if let Some(next) = input.chars().next().filter(|v| v.is_whitespace()) {
         Ok((&input[next.len_utf8()..], next))
     } else {
@@ -139,7 +139,7 @@ pub fn any_whitespace(input: &str) -> PResult<char> {
     }
 }
 
-pub fn hexadecimal_number(str: &str) -> PResult<u64> {
+pub fn hexadecimal_number<'t>(str: &'t str) -> PResult<&'t str, u64> {
     fn char_to_hex_number(ch: char) -> Option<u64> {
         match ch {
             '0'..='9' => Some(ch as u64 - '0' as u64),
@@ -152,7 +152,7 @@ pub fn hexadecimal_number(str: &str) -> PResult<u64> {
     integer(16, char_to_hex_number)(str)
 }
 
-pub fn decimal_number(str: &str) -> PResult<u64> {
+pub fn decimal_number<'t>(str: &'t str) -> PResult<&'t str, u64> {
     fn char_to_decimal_number(ch: char) -> Option<u64> {
         match ch {
             '0'..='9' => Some(ch as u64 - '0' as u64),
@@ -163,7 +163,7 @@ pub fn decimal_number(str: &str) -> PResult<u64> {
     integer(10, char_to_decimal_number)(str)
 }
 
-pub fn binary_number(str: &str) -> PResult<u64> {
+pub fn binary_number<'t>(str: &'t str) -> PResult<&'t str, u64> {
     fn char_to_binary_number(ch: char) -> Option<u64> {
         match ch {
             '0' => Some(0),
@@ -175,8 +175,8 @@ pub fn binary_number(str: &str) -> PResult<u64> {
     integer(2, char_to_binary_number)(str)
 }
 
-pub fn floating_number(mut str: &str) -> PResult<f64> {
-    fn parse_sign(str: &str) -> PResult<i32> {
+pub fn floating_number<'t>(mut str: &'t str) -> PResult<&'t str, f64> {
+    fn parse_sign<'t>(str: &'t str) -> PResult<&'t str, i32> {
         match str.chars().next() {
             Some('+' | '.') => Ok((&str['+'.len_utf8()..], 1)),
             Some('0'..='9') => Ok((str, 1)),
@@ -214,9 +214,9 @@ pub fn floating_number(mut str: &str) -> PResult<f64> {
 
         str = &str[index..];
 
-        result
+        Some(result)
     } else {
-        0.0
+        None
     };
 
     let exponent = if str.starts_with('e') {
@@ -228,12 +228,16 @@ pub fn floating_number(mut str: &str) -> PResult<f64> {
         (str, exp_sign) = parse_sign(str)?;
         (str, exp) = decimal_number(str)?;
 
-        exp as i32 * exp_sign
+        Some(exp as i32 * exp_sign)
     } else {
-        0
+        None
     };
 
-    Ok((str, sign as f64 * (integer_part as f64 + fractional_part) * 10.0f64.powi(exponent)))
+    if fractional_part.is_none() && exponent.is_none() {
+        return Err(str);
+    }
+
+    Ok((str, sign as f64 * (integer_part as f64 + fractional_part.unwrap_or(0.0)) * 10.0f64.powi(exponent.unwrap_or(0))))
 } // fn floating_number
 
 // lib.rs

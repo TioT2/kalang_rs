@@ -1,13 +1,13 @@
 use super::{Parser, PResult};
 
-pub trait AllHelper<'t, T> {
-    fn parse(&self, str: &'t str) -> PResult<'t, T>;
+pub trait AllHelper<'t, D: 't, T> {
+    fn parse(&self, str: D) -> PResult<'t, D, T>;
 }
 
 macro_rules! impl_all_helper_impl {
     ($([$tn: ident, $on: ident, $rn: ident, $pi: ident], )*) => {
-        impl <'t, $($tn: Parser<'t, $on>, $on),*> AllHelper<'t, ($($on),*)> for ($($tn),*) {
-            fn parse(&self, str: &'t str) -> PResult<'t, ($($on),*)> {
+        impl <'t, D: 't, $($tn: Parser<'t, D, $on>, $on),*> AllHelper<'t, D, ($($on),*)> for ($($tn),*) {
+            fn parse(&self, str: D) -> PResult<'t, D, ($($on),*)> {
                 let ($($pi),*) = self;
                 $(
                     let (str, $rn) = $pi(str)?;
@@ -62,8 +62,8 @@ impl_all_helper!(
     [T19, O19, r19, p19],
 );
 
-pub fn all<'t, T>(tup: impl AllHelper<'t, T>) -> impl Parser<'t, T> {
-    move |str: &'t str| -> PResult<'t, T> {
+pub fn all<'t, D: 't, T>(tup: impl AllHelper<'t, D, T>) -> impl Parser<'t, D, T> {
+    move |str: D| -> PResult<'t, D, T> {
         tup.parse(str)
     }
 }

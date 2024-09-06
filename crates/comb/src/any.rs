@@ -1,13 +1,13 @@
 use super::{Parser, PResult};
 
-pub trait AnyHelper<'t, T> {
-    fn parse(&self, str: &'t str) -> PResult<'t, T>;
+pub trait AnyHelper<'t, D, T> {
+    fn parse(&self, str: D) -> PResult<'t, D, T>;
 }
 
 macro_rules! impl_any_helper_impl {
     ($([$pt: ident, $pn: ident], )*) => {
-        impl<'t, O, $($pt: Parser<'t, O>),*> AnyHelper<'t, O> for ($($pt),*) {
-            fn parse(&self, str: &'t str) -> PResult<'t, O> {
+        impl<'t, D: 't + Copy, O, $($pt: Parser<'t, D, O>),*> AnyHelper<'t, D, O> for ($($pt),*) {
+            fn parse(&self, str: D) -> PResult<'t, D, O> {
                 let ($($pn),*) = self;
 
                 $(
@@ -63,8 +63,8 @@ impl_any_helper!(
     [P19, p19],
 );
 
-pub fn any<'t, T>(any: impl AnyHelper<'t, T>) -> impl Parser<'t, T> {
-    move |str: &'t str| -> PResult<'t, T> {
+pub fn any<'t, D: 't, T>(any: impl AnyHelper<'t, D, T>) -> impl Parser<'t, D, T> {
+    move |str: D| -> PResult<'t, D, T> {
         any.parse(str)
     }
 }

@@ -13,8 +13,6 @@ fn main() {
     let tokens = lexer::TokenIterator::new(source).collect::<Vec<_>>();
     println!("{:?}", tokens);
 
-    let r = 31;
-
     // let module_str = include_str!("../examples/declarations.kl");
     // let module = ast::Module::parse(module_str);
     // println!("{:?}", module);

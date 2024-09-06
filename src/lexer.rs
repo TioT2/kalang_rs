@@ -75,7 +75,7 @@ impl<'t> Iterator for TokenIterator<'t> {
             |(kw, _)| kw,
         );
 
-        let ident = |mut str: &'t str| -> PResult<'t, String> {
+        let ident = |mut str: &'t str| -> PResult<'t, &str, String> {
             let first;
 
             (str, first) = comb::filter(
@@ -117,8 +117,8 @@ impl<'t> Iterator for TokenIterator<'t> {
 
         let token = comb::any((
             comb::map(keyword, Token::Keyword),
-            comb::map(symbol, Token::Symbol),
             comb::map(literal, Token::Literal),
+            comb::map(symbol, Token::Symbol),
             comb::map(ident, Token::Ident),
         ));
 
