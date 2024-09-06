@@ -1,0 +1,4 @@
+let a: i32;
+let queue: f32;
+
+fn main(amogus: i32, sus: f32) -> f32;

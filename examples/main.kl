@@ -1,0 +1,8 @@
+// 
+
+export fn main() {
+    let a: f32 = 37.0;
+    let b: f32 = 41.0;
+
+    __builtin::print_f32((a + b) / (2 as f32));
+}
