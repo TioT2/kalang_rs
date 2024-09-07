@@ -1,5 +1,6 @@
 use comb::PResult;
 
+/// Kalang keyword list
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Keyword {
     /// Function
@@ -94,7 +95,7 @@ pub enum Symbol {
     Equal,
 
     /// ==
-    EqualEqual,
+    DoubleEqual,
 
     /// !
     Exclamation,
@@ -122,9 +123,9 @@ pub enum Literal {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     Keyword(Keyword),
-    Ident(String),
     Symbol(Symbol),
     Literal(Literal),
+    Ident(String),
 }
 
 /// Source -> Tokens conversion iterator
@@ -219,7 +220,7 @@ impl<'t> Iterator for TokenIterator<'t> {
                 comb::map(comb::literal(">"  ), |_| Symbol::TriBrClose),
             )),
             comb::any((
-                comb::map(comb::literal("==" ), |_| Symbol::EqualEqual),
+                comb::map(comb::literal("==" ), |_| Symbol::DoubleEqual),
                 comb::map(comb::literal("!=" ), |_| Symbol::ExclamationEqual),
                 comb::map(comb::literal("+=" ), |_| Symbol::PlusEqual),
                 comb::map(comb::literal("-=" ), |_| Symbol::MinusEqual),
