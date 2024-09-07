@@ -1,24 +1,20 @@
 use comb::PResult;
 
-/// Kalang keyword list
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Keyword {
-    /// Function
-    Fn,
-
-    /// Variable declaration
-    Let,
-
-    /// Object visibility specifier
-    Export,
-
-    /// Transformation
-    As,
-} // enum Keyword
-
 /// Symbol representation enumeration
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Symbol {
+    /// fn
+    Fn,
+
+    /// let
+    Let,
+
+    /// export
+    Export,
+
+    /// as
+    As,
+
     /// (
     RoundBrOpen,
 
@@ -123,9 +119,13 @@ pub enum Literal {
 /// Token representation structure
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token<'t> {
-    Keyword(Keyword),
+    /// Symbol
     Symbol(Symbol),
+
+    /// Literal
     Literal(Literal),
+
+    /// Just string, lol
     Ident(&'t str),
 }
 
@@ -167,22 +167,6 @@ impl<'t> Iterator for TokenIterator<'t> {
     type Item = Token<'t>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let keyword = comb::map(
-            comb::all((
-                comb::any((
-                    comb::map(comb::literal("fn"    ), |_| Keyword::Fn    ),
-                    comb::map(comb::literal("let"   ), |_| Keyword::Let   ),
-                    comb::map(comb::literal("export"), |_| Keyword::Export),
-                    comb::map(comb::literal("as"    ), |_| Keyword::As    ),
-                )),
-                comb::filter(
-                    comb::any_char,
-                    |ch| !ch.is_alphanumeric(),
-                ),
-            )),
-            |(kw, _)| kw,
-        );
-
         let literal = comb::any((
             // Try to parse FP literal
             comb::map(comb::floating_number, Literal::Floating),
@@ -211,6 +195,12 @@ impl<'t> Iterator for TokenIterator<'t> {
         ));
 
         let symbol = comb::any((
+            comb::any((
+                comb::map(comb::literal("fn"    ), |_| Symbol::Fn    ),
+                comb::map(comb::literal("let"   ), |_| Symbol::Let   ),
+                comb::map(comb::literal("export"), |_| Symbol::Export),
+                comb::map(comb::literal("as"    ), |_| Symbol::As    ),
+            )),
             comb::any((
                 comb::map(comb::literal("<<="), |_| Symbol::ShlEqual),
                 comb::map(comb::literal(">>="), |_| Symbol::ShrEqual),
@@ -266,7 +256,6 @@ impl<'t> Iterator for TokenIterator<'t> {
             comb::map(
                 // Token parsing
                 comb::any((
-                    comb::map(keyword, Token::Keyword),
                     comb::map(literal, Token::Literal),
                     comb::map(symbol, Token::Symbol),
                     comb::map(ident, Token::Ident),
@@ -290,5 +279,7 @@ impl<'t> Iterator for TokenIterator<'t> {
                 return Some(next);
             }
         }
-    }
+    } // fn next
 }
+
+// file lexer.rs

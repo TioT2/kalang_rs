@@ -1,20 +1,8 @@
 use comb::{PResult, Parser};
 
-use crate::lexer::{Keyword, Literal, Symbol, Token};
+use crate::lexer::{Literal, Symbol, Token};
 
 use super::{Operator, Type};
-
-pub fn keyword<'t>(match_kw: Keyword) -> impl Parser<'t, &'t [Token<'t>], ()> {
-    move |tl: &'t [Token]| -> PResult<'t, &'t [Token], ()> {
-        if let Some(Token::Keyword(kw)) = tl.get(0) {
-            if *kw == match_kw {
-                return Ok((&tl[1..], ()))
-            }
-        }
-
-        return Err(tl);
-    }
-}
 
 pub fn symbol<'t>(match_sm: Symbol) -> impl Parser<'t, &'t [Token<'t>], ()> {
     move |tl: &'t [Token]| -> PResult<'t, &'t [Token], ()> {

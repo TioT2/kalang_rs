@@ -2,7 +2,7 @@ mod parse;
 
 use std::collections::HashMap;
 
-use crate::lexer::{Keyword, Literal, Symbol, Token};
+use crate::lexer::{Literal, Symbol, Token};
 
 /// Mathematical operation representation structure
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -146,7 +146,7 @@ impl Module {
         // Variable declaration parser
         let variable = comb::map(
             comb::all((
-                parse::keyword(Keyword::Let),
+                parse::symbol(Symbol::Let),
                 parse::ident,
                 parse::symbol(Symbol::Colon),
                 parse::ty,
@@ -174,7 +174,7 @@ impl Module {
         // Function declaration parser
         let function = comb::map(
             comb::all((
-                parse::keyword(Keyword::Fn),
+                parse::symbol(Symbol::Fn),
                 parse::ident,
                 parse::symbol(Symbol::RoundBrOpen),
                 comb::repeat_with_separator(
