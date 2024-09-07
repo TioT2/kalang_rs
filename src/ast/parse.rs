@@ -4,7 +4,7 @@ use crate::lexer::{Keyword, Literal, Symbol, Token};
 
 use super::{Operator, Type};
 
-pub fn keyword<'t>(match_kw: Keyword) -> impl Parser<'t, &'t [Token], ()> {
+pub fn keyword<'t>(match_kw: Keyword) -> impl Parser<'t, &'t [Token<'t>], ()> {
     move |tl: &'t [Token]| -> PResult<'t, &'t [Token], ()> {
         if let Some(Token::Keyword(kw)) = tl.get(0) {
             if *kw == match_kw {
@@ -16,7 +16,7 @@ pub fn keyword<'t>(match_kw: Keyword) -> impl Parser<'t, &'t [Token], ()> {
     }
 }
 
-pub fn symbol<'t>(match_sm: Symbol) -> impl Parser<'t, &'t [Token], ()> {
+pub fn symbol<'t>(match_sm: Symbol) -> impl Parser<'t, &'t [Token<'t>], ()> {
     move |tl: &'t [Token]| -> PResult<'t, &'t [Token], ()> {
         if let Some(Token::Symbol(sm)) = tl.get(0) {
             if *sm == match_sm {
@@ -28,7 +28,7 @@ pub fn symbol<'t>(match_sm: Symbol) -> impl Parser<'t, &'t [Token], ()> {
     }
 }
 
-pub fn operator(tl: &[Token]) -> PResult<&[Token], Operator> {
+pub fn operator<'t>(tl: &'t [Token]) -> PResult<'t, &'t [Token<'t>], Operator> {
     let Some(Token::Symbol(symbol)) = tl.get(0) else {
         return Err(tl);
     };
@@ -51,15 +51,15 @@ pub fn operator(tl: &[Token]) -> PResult<&[Token], Operator> {
     Ok((&tl[1..], oper))
 }
 
-pub fn ident(tl: &[Token]) -> PResult<&[Token], &str> {
+pub fn ident<'t>(tl: &'t [Token]) -> PResult<'t, &'t [Token<'t>], &'t str> {
     if let Some(Token::Ident(str)) = tl.get(0) {
-        Ok((&tl[1..], str.as_str()))
+        Ok((&tl[1..], str))
     } else {
         Err(tl)
     }
 }
 
-pub fn literal(tl: &[Token]) -> PResult<&[Token], Literal> {
+pub fn literal<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Literal> {
     if let Some(Token::Literal(lit)) = tl.get(0) {
         Ok((&tl[1..], *lit))
     } else {
@@ -67,7 +67,7 @@ pub fn literal(tl: &[Token]) -> PResult<&[Token], Literal> {
     }
 }
 
-pub fn ty(tl: &[Token]) -> PResult<&[Token], Type> {
+pub fn ty<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Type> {
     let (new_tl, ident) = ident(tl)?;
 
     match ident {

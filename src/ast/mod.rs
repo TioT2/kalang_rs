@@ -58,56 +58,92 @@ pub struct RawExpression {
 pub struct UnaryOperation {
     /// Operand, actually
     pub operand: Box<Expression>,
-}
+} // struct UnaryOperation
 
 /// Binary operation representation structure
 #[derive(Debug)]
 pub struct BinaryOperation {
+    /// Left Hand Side
     pub lhs: Box<Expression>,
-    pub rhs: Box<Expression>,
-}
 
+    /// Right Hand Side
+    pub rhs: Box<Expression>,
+} // struct BinaryOperation
+
+/// Expression value representation structures
 #[derive(Debug)]
 pub enum Value {
+    /// Integer literal
     Integer(u64),
-    Floating(f64),
-    Variable(String),
-}
 
+    /// FP literal
+    Floating(f64),
+
+    /// Strnig (reference to nametable element)
+    Variable(String),
+} // enum Value
+
+/// Type representation enumeration (MUST be fully reworked later)
 #[derive(Debug)]
 pub enum Type {
+    /// 32-bit integer
     I32,
-    F32,
-    I64,
-    F64,
-}
 
+    /// 32-bit FP number
+    F32,
+
+    /// 64-bit integer
+    I64,
+
+    /// 64-bit FP number
+    F64,
+} // enum Type
+
+/// Expression tree element representation enumeration
 #[derive(Debug)]
 pub enum Expression {
+    /// Value
     Value(Value),
+
+    /// Binary operation
     BinaryOperation(BinaryOperation),
+
+    /// Unary operation
     UnaryOperation(UnaryOperation),
 }
 
+/// Some declaration representation enumeration (enum and struct will be added later)
 #[derive(Debug)]
 pub enum Declaration {
+    /// Function
     Function {
+        /// Input set
         inputs: Vec<(String, Type)>,
+
+        /// return value
         output: Type,
     },
+    /// Global variable (ded uebet)
     Variable {
+        /// Type
         ty: Type,
+
+        /// Initializer expression
         initializer: Option<Expression>,
     }
-}
+} // enum Declaration
 
+/// Module representation structure
 #[derive(Debug)]
 pub struct Module {
+    /// Declaration set
     pub declarations: HashMap<String, Declaration>,
-}
+} // struct Module
 
 impl Module {
+    /// Module from token list parsing function
     pub fn parse(tokens: &[Token]) -> Option<Module> {
+        // Variable declaration parser
         let variable = comb::map(
             comb::all((
                 parse::keyword(Keyword::Let),
@@ -135,6 +171,7 @@ impl Module {
             |(_, name, _, ty, initializer, _)| (name, Declaration::Variable { ty, initializer })
         );
 
+        // Function declaration parser
         let function = comb::map(
             comb::all((
                 parse::keyword(Keyword::Fn),

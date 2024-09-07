@@ -120,12 +120,33 @@ pub enum Literal {
     Integer(u64),
 } // enum Literal
 
+/// Token representation structure
 #[derive(Clone, Debug, PartialEq)]
-pub enum Token {
+pub enum Token<'t> {
     Keyword(Keyword),
     Symbol(Symbol),
     Literal(Literal),
-    Ident(String),
+    Ident(&'t str),
+}
+
+/// Ident parsing function
+fn ident<'t>(str: &'t str) -> PResult<'t, &'t str, &'t str> {
+    let mut chars = str.chars();
+
+    let first = chars.next().ok_or(str)?;
+
+    if !first.is_alphabetic() {
+        return Err(str);
+    }
+
+    let total_len = chars
+        .take_while(|v| v.is_alphanumeric())
+        .fold(first.len_utf8(), |total, ch| total + ch.len_utf8());
+
+    Ok((
+        &str[total_len..],
+        &str[..total_len],
+    ))
 }
 
 /// Source -> Tokens conversion iterator
@@ -143,7 +164,7 @@ impl<'t> TokenIterator<'t> {
 }
 
 impl<'t> Iterator for TokenIterator<'t> {
-    type Item = Token;
+    type Item = Token<'t>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let keyword = comb::map(
@@ -162,24 +183,6 @@ impl<'t> Iterator for TokenIterator<'t> {
             |(kw, _)| kw,
         );
 
-        let ident = |mut str: &'t str| -> PResult<'t, &str, String> {
-            let first;
-
-            (str, first) = comb::filter(
-                comb::any_char,
-                |ch| ch.is_alphabetic() || *ch == '_',
-            )(str)?;
-
-            comb::repeat(
-                comb::filter(comb::any_char, |ch| ch.is_alphanumeric() || *ch == '_'),
-                move || first.to_string(),
-                |mut string, char| {
-                    string.push(char);
-                    string
-                }
-            )(str)
-        };
-        
         let literal = comb::any((
             // Try to parse FP literal
             comb::map(comb::floating_number, Literal::Floating),
