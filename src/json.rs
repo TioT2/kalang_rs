@@ -35,7 +35,7 @@ impl Json {
 } // impl Json
 
 /// Quoted string parsing function
-fn quoted_string(str: &str) -> PResult<&'_ str, String> {
+fn quoted_string(str: &str) -> PResult<&str, String> {
     map(
         all((
             comb::literal("\""),
@@ -57,7 +57,7 @@ fn quoted_string(str: &str) -> PResult<&'_ str, String> {
 } // fn quoted_string
 
 /// JSON string parsing function
-fn parse_string(str: &str) -> PResult<&'_ str, Json> {
+fn parse_string(str: &str) -> PResult<&str, Json> {
     map(
         quoted_string,
         Json::String
@@ -65,7 +65,7 @@ fn parse_string(str: &str) -> PResult<&'_ str, Json> {
 } // fn parse_string
 
 /// bool parsing function
-fn parse_bool(str: &str) -> PResult<&'_ str, Json> {
+fn parse_bool(str: &str) -> PResult<&str, Json> {
     map(
         any((
             map(comb::literal("true" ), |_| true ),
@@ -76,7 +76,7 @@ fn parse_bool(str: &str) -> PResult<&'_ str, Json> {
 } // fn parse_bool
 
 /// NULL parse function
-fn parse_null(str: &str) -> PResult<&'_ str, Json> {
+fn parse_null(str: &str) -> PResult<&str, Json> {
     map(
         comb::literal("null"),
         |_| Json::Null
@@ -84,7 +84,7 @@ fn parse_null(str: &str) -> PResult<&'_ str, Json> {
 } // fn parse_null
 
 /// whitespace sequence parsing function
-fn whitespace<'a>(str: &str) -> PResult<&'_ str, ()> {
+fn whitespace<'a>(str: &str) -> PResult<&str, ()> {
     repeat(
         filter(comb::any_char, |c| c.is_whitespace()),
         || (),
@@ -93,7 +93,7 @@ fn whitespace<'a>(str: &str) -> PResult<&'_ str, ()> {
 } // fn whitespace
 
 /// Whitespace-surrounding function
-fn surround<'a, T>(parser: impl comb::Parser<'a, &'a str, T>) -> impl comb::Parser<'a, &'a str, T> {
+fn surround<'t, T>(parser: impl comb::Parser<'t, &'t str, T>) -> impl comb::Parser<'t, &'t str, T> {
     map(
         all((
             whitespace,
@@ -105,7 +105,7 @@ fn surround<'a, T>(parser: impl comb::Parser<'a, &'a str, T>) -> impl comb::Pars
 } // fn surround
 
 /// JSON array parsing function
-fn parse_array<'t>(str: &'t str) -> PResult<&'t str, Json> {
+fn parse_array(str: &str) -> PResult<&str, Json> {
     map(
         all((
             comb::literal("["),
@@ -124,7 +124,7 @@ fn parse_array<'t>(str: &'t str) -> PResult<&'t str, Json> {
     )(str)
 } // fn parse_array
 
-fn parse_object<'t>(str: &'t str) -> PResult<&'t str, Json> {
+fn parse_object(str: &str) -> PResult<&str, Json> {
     let object_pair = map(
         all((
             quoted_string,

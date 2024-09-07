@@ -1,12 +1,54 @@
 use std::collections::HashMap;
 
-use comb::{all, any, filter, map, repeat, repeat_with_separator, PResult, Parser};
+use comb::{PResult, Parser};
 
+use crate::lexer::{Keyword, Literal, Symbol, Token};
+
+/// Non-parsed expression representation structure
+pub enum RawExpressionElement {
+    /// Operator
+    Operator(Operator),
+
+    /// Literal or variable reference
+    Literal(Literal),
+
+    /// Sub expression (expression in parentheses)
+    SubExpression(Box<RawExpression>),
+
+    /// Sub expression (expression in square brackets)
+    IndexingOperator(Box<RawExpression>),
+} // enum RawExpressionElement
+
+/// Non-parsed expression representation structure
+pub struct RawExpression {
+    /// Set of expression elements
+    pub elements: Vec<RawExpressionElement>,
+} // struct RawExpression
+
+/// Mathematical operation representation structure
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Operator {
+    /// Addition
+    Add,
+
+    /// Substraction
+    Sub,
+
+    /// Multiplication
+    Mul,
+
+    /// Division
+    Div,
+} // enum Operator
+
+/// Unary operation representation structure
 #[derive(Debug)]
 pub struct UnaryOperation {
+    /// Operand, actually
     pub operand: Box<Expression>,
 }
 
+/// Binary operation representation structure
 #[derive(Debug)]
 pub struct BinaryOperation {
     pub lhs: Box<Expression>,
@@ -15,7 +57,7 @@ pub struct BinaryOperation {
 
 #[derive(Debug)]
 pub enum Value {
-    Integer(i64),
+    Integer(u64),
     Floating(f64),
     Variable(String),
 }
@@ -24,6 +66,8 @@ pub enum Value {
 pub enum Type {
     I32,
     F32,
+    I64,
+    F64,
 }
 
 #[derive(Debug)]
@@ -38,7 +82,6 @@ pub enum Declaration {
     Function {
         inputs: HashMap<String, Type>,
         output: Type,
-        code: Expression,
     },
     Variable {
         ty: Type,
@@ -51,123 +94,158 @@ pub struct Module {
     pub declarations: HashMap<String, Declaration>,
 }
 
+fn keyword<'t>(match_kw: Keyword) -> impl Parser<'t, &'t [Token], ()> {
+    move |tl: &'t [Token]| -> PResult<'t, &'t [Token], ()> {
+        if let Some(Token::Keyword(kw)) = tl.get(0) {
+            if *kw == match_kw {
+                return Ok((&tl[1..], ()))
+            }
+        }
+
+        return Err(tl);
+    }
+}
+
+fn symbol<'t>(match_sm: Symbol) -> impl Parser<'t, &'t [Token], ()> {
+    move |tl: &'t [Token]| -> PResult<'t, &'t [Token], ()> {
+        if let Some(Token::Symbol(sm)) = tl.get(0) {
+            if *sm == match_sm {
+                return Ok((&tl[1..], ()));
+            }
+        }
+
+        return Err(tl);
+    }
+}
+
+fn operator(tl: &[Token]) -> PResult<&[Token], Operator> {
+    comb::any((
+        comb::map(
+            symbol(Symbol::Plus),
+            |_| Operator::Add,
+        ),
+        comb::map(
+            symbol(Symbol::Minus),
+            |_| Operator::Sub,
+        ),
+        comb::map(
+            symbol(Symbol::Asterisk),
+            |_| Operator::Mul
+        ),
+        comb::map(
+            symbol(Symbol::Slash),
+            |_| Operator::Div,
+        )
+    ))(tl)
+}
+
+fn ident(tl: &[Token]) -> PResult<&[Token], &str> {
+    if let Some(Token::Ident(str)) = tl.get(0) {
+        Ok((&tl[1..], str.as_str()))
+    } else {
+        Err(tl)
+    }
+}
+
+fn literal(tl: &[Token]) -> PResult<&[Token], Literal> {
+    if let Some(Token::Literal(lit)) = tl.get(0) {
+        Ok((&tl[1..], *lit))
+    } else {
+        Err(tl)
+    }
+}
+
+fn parse_type(tl: &[Token]) -> PResult<&[Token], Type> {
+    let (new_tl, ident) = ident(tl)?;
+
+    match ident {
+        "f32" => Ok((new_tl, Type::F32)),
+        "i32" => Ok((new_tl, Type::I32)),
+        "i64" => Ok((new_tl, Type::I64)),
+        "f64" => Ok((new_tl, Type::F64)),
+
+        _ => Err(tl),
+    }
+}
+
+pub fn expresson(tl: &[Token]) -> PResult<&[Token], Expression> {
+
+    todo!()
+}
+
 impl Module {
-    pub fn parse(source: &str) -> Option<Module> {
-        fn ty<'t>(str: &'t str) -> PResult<'t, &'t str, Type> {
-            any((
-                map(comb::literal("i32"), |_| Type::I32),
-                map(comb::literal("f32"), |_| Type::F32),
-            ))(str)
-        }
-
-        fn ident<'t>(str: &'t str) -> PResult<'t, &'t str, String> {
-            repeat(
-                filter(comb::any_char, |v| v.is_alphabetic()),
-                String::new,
-                |mut string, char| {
-                    string.push(char);
-                    string
-                }
-            )(str)
-        }
-
-        fn whitespace<'t>(source: &'t str) -> PResult<'t, &'t str, ()> {
-            repeat(
-                comb::any_whitespace,
-                || (),
-                |_, _| ()
-            )(source)
-        }
-
-        fn surround_whitespace<'t, T>(parser: impl Parser<'t, &'t str, T>) -> impl Parser<'t, &'t str, T> {
-            map(
-                all((
-                    whitespace,
-                    parser,
-                    whitespace,
+    pub fn parse(tokens: &[Token]) -> Option<Module> {
+        let variable = comb::map(
+            comb::all((
+                keyword(Keyword::Let),
+                ident,
+                symbol(Symbol::Colon),
+                parse_type,
+                comb::any((
+                    comb::map(
+                        comb::all((
+                            symbol(Symbol::Equal),
+                            literal,
+                        )),
+                        |(_, val)| Some(Expression::Value(match val {
+                            Literal::Floating(flt) => Value::Floating(flt),
+                            Literal::Integer(int) => Value::Integer(int),
+                        }))
+                    ),
+                    comb::map(
+                        comb::identity,
+                        |_| None,
+                    ),
                 )),
-                |(_, v, _)| v,
-            )
-        }
-
-        let variable = map(
-            all((
-                comb::literal("let"),
-                surround_whitespace(ident),
-                comb::literal(":"),
-                surround_whitespace(ty),
-                comb::literal(";"),
+                symbol(Symbol::Semicolon),
             )),
-            |(_, name, _, ty, _)| (name, Declaration::Variable {
-                ty,
-                initializer: None,
-            }),
+            |(_, name, _, ty, initializer, _)| (name, Declaration::Variable { ty, initializer })
         );
 
-        let function = map(
-            all((
-                comb::literal("fn"),
-                surround_whitespace(ident),
-                comb::literal("("),
-                whitespace,
-                repeat_with_separator(
-                    map(
-                        all((
-                            ident,
-                            surround_whitespace(comb::literal(":")),
-                            ty,
-                        )),
-                        |(name, _, ty)| (name, ty),
-                    ),
-                    surround_whitespace(comb::literal(",")),
+        let function = comb::map(
+            comb::all((
+                keyword(Keyword::Fn),
+                ident,
+                symbol(Symbol::RoundBrOpen),
+                comb::repeat_with_separator(
+                    comb::all((
+                        ident,
+                        symbol(Symbol::Colon),
+                        parse_type,
+                    )),
+                    symbol(Symbol::Comma),
                     HashMap::new,
-                    |mut map, (name, ty)| {
-                        map.insert(name, ty);
-                        map
+                    |mut hmap, (name, _, type_name)| {
+                        hmap.insert(name.to_string(), type_name);
+                        hmap
                     }
                 ),
-                surround_whitespace(comb::literal(")")),
-                map(
-                    all((
-                        comb::literal("->"),
-                        whitespace,
-                        ty
-                    )),
-                    |(_, _, v)| v
-                )
+                symbol(Symbol::RoundBrClose),
+                parse_type,
             )),
-            |(_, name, _, _, inputs, _, output)| (
-                name,
-                Declaration::Function {
-                    code: Expression::Value(Value::Floating(-47.2)),
-                    inputs,
-                    output,
-                }
-            ),
+            |(_, name, _, inputs, _, output)| (name, Declaration::Function {
+                inputs,
+                output,
+            })
         );
 
-        let declaration = any((
-            surround_whitespace(variable),
-            surround_whitespace(function),
+        let declaration = comb::any((
+            variable,
+            function,
         ));
 
-        let module = map(
-            repeat(
-                declaration,
-                HashMap::new,
-                |mut declarations, (name, declaration)| {
-                    declarations.insert(name, declaration);
-                    declarations
-                }
-            ),
-            |declarations| Module {
-                declarations,
+        let declarations = comb::repeat(
+            declaration,
+            HashMap::<String, Declaration>::new,
+            |mut hmap, (name, declaration)| {
+                hmap.insert(name.to_string(), declaration);
+                hmap
             }
         );
 
-        module(source)
-            .ok()
-            .map(|(_, v)| v)
+        Some(Module {
+            declarations: declarations(tokens).ok()?.1,
+        })
     }
 }
 

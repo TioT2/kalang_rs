@@ -1,8 +1,12 @@
-// 
+// ^-^ <- koshachya morda
 
 export fn main() {
+    // rhs
     let a: f32 = 37.0;
+    // lhs
     let b: f32 = 41.0;
+    // divisor
+    let d: i32 = 0xFF00FF00;
 
-    __builtin::print_f32((a + b) / (2 as f32));
+    __builtin::print_f32((a + b) / ((d * 2) as f32));
 }

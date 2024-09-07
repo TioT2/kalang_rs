@@ -1,4 +1,15 @@
-let a: i32;
+// First comment
+let a: i32 = 41;
+
+// Second comment
 let queue: f32;
 
-fn main(amogus: i32, sus: f32) -> f32;
+// Main project function
+// 'argc' - argument count
+// 'argd' - ?
+// 'arge' - ??
+// 'argf' - ???
+// Returns exit status
+fn main(argc: i32, argd: f32, arge: i64, argf: f64) i32;
+
+// cum ment

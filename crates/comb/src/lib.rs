@@ -21,12 +21,16 @@ pub fn map<'t, D: 't, I, O>(
     }
 }
 
-pub fn filter<'t, D: 't + Copy, O>(
+pub fn identity<'t, D: 't>(data: D) -> PResult<'t, D, ()> {
+    Ok((data, ()))
+}
+
+pub fn filter<'t, D: 't + Clone, O>(
     parser: impl Parser<'t, D, O>,
     f: impl Fn(&O) -> bool
 ) -> impl Parser<'t, D, O> {
     move |str: D| -> PResult<'t, D, O> {
-        if let Ok((s, o)) = parser(str) {
+        if let Ok((s, o)) = parser(str.clone()) {
             if f(&o) {
                 return Ok((s, o));
             }
@@ -48,7 +52,7 @@ pub fn literal<'t>(
     }
 }
 
-pub fn repeat<'t, D: 't + Copy, T, O>(
+pub fn repeat<'t, D: 't + Clone, T, O>(
     parser: impl Parser<'t, D, T>,
     initializer: impl Fn() -> O,
     fold_fn: impl Fn(O, T) -> O
@@ -57,7 +61,7 @@ pub fn repeat<'t, D: 't + Copy, T, O>(
         let mut result = initializer();
 
         loop {
-            let Ok((new_str, value)) = parser(str) else {
+            let Ok((new_str, value)) = parser(str.clone()) else {
                 return Ok((str, result))
             };
 
@@ -67,7 +71,7 @@ pub fn repeat<'t, D: 't + Copy, T, O>(
     }
 }
 
-pub fn repeat_with_separator<'t, D: 't + Copy, T, O>(
+pub fn repeat_with_separator<'t, D: 't + Clone, T, O>(
     value: impl Parser<'t, D, T>,
     separator: impl Parser<'t, D, ()>,
     initializer: impl Fn() -> O,
@@ -76,7 +80,7 @@ pub fn repeat_with_separator<'t, D: 't + Copy, T, O>(
     move |str: D| -> PResult<'t, D, O> {
         let mut result = initializer();
 
-        let Ok((str, first)) = value(str) else {
+        let Ok((str, first)) = value(str.clone()) else {
             return Ok((str, result));
         };
 
@@ -85,11 +89,11 @@ pub fn repeat_with_separator<'t, D: 't + Copy, T, O>(
         let mut str = str;
 
         loop {
-            let Ok((separator_str, _)) = separator(str) else {
+            let Ok((separator_str, _)) = separator(str.clone()) else {
                 return Ok((str, result));
             };
 
-            let Ok((next_str, value)) = value(separator_str) else {
+            let Ok((next_str, value)) = value(separator_str.clone()) else {
                 return Err(separator_str);
             };
 
