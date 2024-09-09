@@ -25,6 +25,20 @@ pub fn identity<'t, D: 't>(data: D) -> PResult<'t, D, ()> {
     Ok((data, ()))
 }
 
+pub fn filter_map<'t, D: 't + Clone, I, O>(
+    parser: impl Parser<'t, D, I>,
+    f: impl Fn(I) -> Option<O>
+) -> impl Parser<'t, D, O> {
+    move |tl: D| -> PResult<'t, D, O> {
+        if let Ok((ntl, i)) = parser(tl.clone()) {
+            if let Some(o) = f(i) {
+                return Ok((ntl, o));
+            }
+        }
+        return Err(tl);
+    }
+}
+
 pub fn filter<'t, D: 't + Clone, O>(
     parser: impl Parser<'t, D, O>,
     f: impl Fn(&O) -> bool

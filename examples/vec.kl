@@ -1,0 +1,38 @@
+/// vector implementation module
+/// ^-^ koshachya morda
+
+/// 3-component f32 vector representation structure
+
+export struct vec3f {
+    x: f32, ///< x coordinate
+    y: f32, ///< y coordinate
+    z: f32, ///< z coordinate
+} // struct vec3f
+
+export fn vec3fAdd(lhs: vec3f, rhs: vec3f) vec3f {
+    vec3f {
+        x: lhs.x + rhs.x,
+        y: lhs.y + rhs.y,
+        z: lhs.z + rhs.z,
+    }
+}
+
+export fn vec3fSub(lhs: vec3f, rhs: vec3f) vec3f {
+    vec3f {
+        x: lhs.x - rhs.x,
+        y: lhs.y - rhs.y,
+        z: lhs.z - rhs.z,
+    }
+}
+
+export fn vec3fDot(lhs: vec3f, rhs: vec3f) f32 {
+    lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z
+}
+
+export fn vec3fCross(lhs: vec3f, rhs: vec3f) vec3f {
+    vec3f {
+        x: lhs.y * rhs.z - lhs.z * rhs.y,
+        y: lhs.z * rhs.x - lhs.x * rhs.z,
+        z: lhs.x * rhs.y - lhs.y * rhs.x,
+    }
+}

@@ -12,6 +12,18 @@ pub enum Symbol {
     /// export
     Export,
 
+    /// enum
+    Enum,
+
+    /// struct
+    Struct,
+
+    /// mutable
+    Mut,
+
+    /// constant
+    Const,
+
     /// as
     As,
 
@@ -135,12 +147,12 @@ fn ident<'t>(str: &'t str) -> PResult<'t, &'t str, &'t str> {
 
     let first = chars.next().ok_or(str)?;
 
-    if !first.is_alphabetic() {
+    if !(first.is_alphabetic() || first == '_') {
         return Err(str);
     }
 
     let total_len = chars
-        .take_while(|v| v.is_alphanumeric())
+        .take_while(|v| v.is_alphanumeric() || *v == '_')
         .fold(first.len_utf8(), |total, ch| total + ch.len_utf8());
 
     Ok((
@@ -200,6 +212,10 @@ impl<'t> Iterator for TokenIterator<'t> {
                 comb::map(comb::literal("let"   ), |_| Symbol::Let   ),
                 comb::map(comb::literal("export"), |_| Symbol::Export),
                 comb::map(comb::literal("as"    ), |_| Symbol::As    ),
+                comb::map(comb::literal("enum"  ), |_| Symbol::Enum  ),
+                comb::map(comb::literal("struct"), |_| Symbol::Struct),
+                comb::map(comb::literal("mut"   ), |_| Symbol::Mut   ),
+                comb::map(comb::literal("const" ), |_| Symbol::Const ),
             )),
             comb::any((
                 comb::map(comb::literal("<<="), |_| Symbol::ShlEqual),

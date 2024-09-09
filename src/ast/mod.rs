@@ -2,7 +2,21 @@ mod parse;
 
 use std::collections::HashMap;
 
+use comb::PResult;
+
 use crate::lexer::{Literal, Symbol, Token};
+
+pub enum OperatorInfo {
+    Binary {
+        is_left_assoc: bool,
+        priority: u8,
+    },
+    BrOpen,
+    BrClose,
+    Unary {
+        is_prefix: bool,
+    },
+}
 
 /// Mathematical operation representation structure
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +45,23 @@ pub enum Operator {
     /// Division with assignment
     DivAssign,
 } // enum Operator
+
+pub struct BlockCode {
+    pub expressions: Vec<RawExpression>,
+}
+
+pub enum BlockType {
+    While {
+        condition: Box<RawExpression>,
+    },
+    IfElse {
+        condition: Box<RawExpression>,
+    }
+}
+
+pub struct Block {
+    pub blocks: Vec<Block>,
+}
 
 /// Non-parsed expression representation structure
 pub enum RawExpressionElement {
@@ -83,21 +114,63 @@ pub enum Value {
     Variable(String),
 } // enum Value
 
-/// Type representation enumeration (MUST be fully reworked later)
-#[derive(Debug)]
-pub enum Type {
-    /// 32-bit integer
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum PrimitiveType {
+    I8,
+    U8,
+    I16,
+    U16,
     I32,
-
-    /// 32-bit FP number
+    U32,
     F32,
-
-    /// 64-bit integer
     I64,
-
-    /// 64-bit FP number
+    U64,
     F64,
-} // enum Type
+
+    Void,
+    Never,
+}
+
+impl PrimitiveType {
+    pub fn parse(str: &str) -> Option<PrimitiveType> {
+        match str {
+            "i8"   => Some(PrimitiveType::I8 ),
+            "u8"   => Some(PrimitiveType::U8 ),
+            "i16"  => Some(PrimitiveType::I16),
+            "u16"  => Some(PrimitiveType::U16),
+            "i32"  => Some(PrimitiveType::I32),
+            "u32"  => Some(PrimitiveType::U32),
+            "f32"  => Some(PrimitiveType::F32),
+            "i64"  => Some(PrimitiveType::I64),
+            "u64"  => Some(PrimitiveType::U64),
+            "f64"  => Some(PrimitiveType::F64),
+            "void" => Some(PrimitiveType::Void),
+            "!"    => Some(PrimitiveType::Never),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Type {
+    Named(String),
+    Primitive(PrimitiveType),
+    Array {
+        element_type: Box<Type>,
+        size: usize,
+    },
+    Pointer {
+        element_type: Box<Type>,
+        is_mutable: bool,
+    },
+    Tuple {
+        element_types: Vec<Type>,
+    },
+    FunctionPointer {
+        inputs: Vec<Type>,
+        output: Box<Type>,
+    },
+}
 
 /// Expression tree element representation enumeration
 #[derive(Debug)]
@@ -111,6 +184,13 @@ pub enum Expression {
     /// Unary operation
     UnaryOperation(UnaryOperation),
 }
+
+#[derive(Clone, Debug)]
+pub struct EnumVariant {
+    pub name: String,
+    pub explicit_index: Option<usize>,
+}
+
 
 /// Some declaration representation enumeration (enum and struct will be added later)
 #[derive(Debug)]
@@ -130,7 +210,17 @@ pub enum Declaration {
 
         /// Initializer expression
         initializer: Option<Expression>,
-    }
+    },
+    /// Structure
+    Structure {
+        /// Structure elements
+        elements: Vec<(String, Type)>,
+    },
+    /// Enum
+    Enumeration {
+        /// Variants
+        variants: Vec<EnumVariant>,
+    },
 } // enum Declaration
 
 /// Module representation structure
@@ -140,68 +230,146 @@ pub struct Module {
     pub declarations: HashMap<String, Declaration>,
 } // struct Module
 
+fn parse_expression<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], RawExpression> {
+    todo!()
+}
+
+fn parse_variable<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
+    comb::map(
+        comb::all((
+            parse::symbol(Symbol::Let),
+            parse::ident,
+            parse::symbol(Symbol::Colon),
+            parse::ty,
+            comb::any((
+                comb::map(
+                    comb::all((
+                        parse::symbol(Symbol::Equal),
+                        parse::literal,
+                    )),
+                    |(_, val)| Some(Expression::Value(match val {
+                        Literal::Floating(flt) => Value::Floating(flt),
+                        Literal::Integer(int) => Value::Integer(int),
+                    }))
+                ),
+                comb::map(
+                    comb::identity,
+                    |_| None,
+                ),
+            )),
+            parse::symbol(Symbol::Semicolon),
+        )),
+        |(_, name, _, ty, initializer, _)| (name, Declaration::Variable { ty, initializer })
+    )(tokens)
+}
+
+fn parse_function<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
+    comb::map(
+        comb::all((
+            parse::symbol(Symbol::Fn),
+            parse::ident,
+            parse::symbol(Symbol::RoundBrOpen),
+            comb::repeat_with_separator(
+                comb::all((
+                    parse::ident,
+                    parse::symbol(Symbol::Colon),
+                    parse::ty,
+                )),
+                parse::symbol(Symbol::Comma),
+                Vec::new,
+                |mut vec, (name, _, type_name)| {
+                    vec.push((name.to_string(), type_name));
+                    vec
+                }
+            ),
+            parse::symbol(Symbol::RoundBrClose),
+            parse::ty,
+        )),
+        |(_, name, _, inputs, _, output)| (name, Declaration::Function {
+            inputs,
+            output,
+        })
+    )(tokens)
+}
+
+fn parse_structure<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
+    comb::map(
+        comb::all((
+            parse::symbol(Symbol::Struct),
+            parse::ident,
+            parse::symbol(Symbol::CurlyBrOpen),
+            comb::repeat_with_separator(
+                comb::all((
+                    comb::map(parse::ident, str::to_string),
+                    parse::symbol(Symbol::Colon),
+                    parse::ty,
+                )),
+                parse::symbol(Symbol::Comma),
+                Vec::new,
+                |mut vec, (name, _, ty)| {
+                    vec.push((name, ty));
+                    vec
+                }
+            ),
+            parse::symbol(Symbol::CurlyBrClose),
+        )),
+        |(_, name, _, elements, _)| (
+            name,
+            Declaration::Structure { elements }
+        )
+    )(tokens)
+}
+
+fn parse_enumeration<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
+    comb::map(
+        comb::all((
+            parse::symbol(Symbol::Enum),
+            parse::ident,
+            parse::symbol(Symbol::CurlyBrOpen),
+            comb::repeat_with_separator(
+                comb::all((
+                    comb::map(parse::ident, str::to_string),
+                    comb::any((
+                        comb::map(
+                            comb::all((
+                                parse::symbol(Symbol::Equal),
+                                comb::filter_map(
+                                    parse::literal,
+                                    |literal| match literal {
+                                        Literal::Integer(i) => Some(i as usize),
+                                        _ => None,
+                                    }
+                                )
+                            )),
+                            |(_, v)| Some(v)
+                        ),
+                        comb::map(
+                            comb::identity,
+                            |_| Option::<usize>::None,
+                        ),
+                    ))
+                )),
+                parse::symbol(Symbol::Comma),
+                Vec::new,
+                |mut vec, (name, explicit_index)| {
+                    vec.push(EnumVariant { explicit_index, name });
+                    vec
+                }
+            ),
+            parse::symbol(Symbol::CurlyBrClose),
+        )),
+        |(_, name, _, variants, _)| (name, Declaration::Enumeration { variants })
+    )(tokens)
+}
+
 impl Module {
     /// Module from token list parsing function
     pub fn parse(tokens: &[Token]) -> Option<Module> {
-        // Variable declaration parser
-        let variable = comb::map(
-            comb::all((
-                parse::symbol(Symbol::Let),
-                parse::ident,
-                parse::symbol(Symbol::Colon),
-                parse::ty,
-                comb::any((
-                    comb::map(
-                        comb::all((
-                            parse::symbol(Symbol::Equal),
-                            parse::literal,
-                        )),
-                        |(_, val)| Some(Expression::Value(match val {
-                            Literal::Floating(flt) => Value::Floating(flt),
-                            Literal::Integer(int) => Value::Integer(int),
-                        }))
-                    ),
-                    comb::map(
-                        comb::identity,
-                        |_| None,
-                    ),
-                )),
-                parse::symbol(Symbol::Semicolon),
-            )),
-            |(_, name, _, ty, initializer, _)| (name, Declaration::Variable { ty, initializer })
-        );
-
-        // Function declaration parser
-        let function = comb::map(
-            comb::all((
-                parse::symbol(Symbol::Fn),
-                parse::ident,
-                parse::symbol(Symbol::RoundBrOpen),
-                comb::repeat_with_separator(
-                    comb::all((
-                        parse::ident,
-                        parse::symbol(Symbol::Colon),
-                        parse::ty,
-                    )),
-                    parse::symbol(Symbol::Comma),
-                    Vec::new,
-                    |mut vec, (name, _, type_name)| {
-                        vec.push((name.to_string(), type_name));
-                        vec
-                    }
-                ),
-                parse::symbol(Symbol::RoundBrClose),
-                parse::ty,
-            )),
-            |(_, name, _, inputs, _, output)| (name, Declaration::Function {
-                inputs,
-                output,
-            })
-        );
-
         let declaration = comb::any((
-            variable,
-            function,
+            parse_variable,
+            parse_function,
+            parse_structure,
+            parse_enumeration,
         ));
 
         let declarations = comb::repeat(

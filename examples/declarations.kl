@@ -4,6 +4,21 @@ let a: i32 = 41;
 // Second comment
 let queue: f32;
 
+enum data_state {
+    initialized,
+    uninitialized = 1
+}
+
+struct vec_queue_data {
+    vector  : [f32; 4],
+    conv_fn : fn([f32; 4]) f32
+}
+
+struct vec_queue_element {
+    value : (queue_data, data_state),
+    next  : *mut vec_queue_element
+}
+
 // Main project function
 // 'argc' - argument count
 // 'argd' - ?
