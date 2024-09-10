@@ -21,6 +21,9 @@ pub enum OperatorInfo {
 /// Mathematical operation representation structure
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Operator {
+    /// Value ignore postfix unary operator
+    Ignore,
+
     /// Addition
     Add,
 
@@ -46,30 +49,40 @@ pub enum Operator {
     DivAssign,
 } // enum Operator
 
-pub struct BlockCode {
-    pub expressions: Vec<RawExpression>,
-}
-
-pub enum BlockType {
-    While {
-        condition: Box<RawExpression>,
-    },
-    IfElse {
-        condition: Box<RawExpression>,
-    }
-}
-
-pub struct Block {
-    pub blocks: Vec<Block>,
-}
+// pub enum Statement {
+//     Const {
+//         name: String,
+//         ty: Box<Type>,
+//         initializer: RawExpression,
+//     },
+//     Let {
+//         variable_name: String,
+//         is_mutable: bool,
+//         ty: Box<Type>,
+//         initializer: RawExpression,
+//     },
+//     Fn {
+//         name: String,
+//         inputs: Vec<(String, Type)>,
+//         output: Box<Type>,
+//         code: Vec<Statement>,
+//     },
+//     Expression {
+//         expr: RawExpression,
+//     },
+// }
 
 /// Non-parsed expression representation structure
+#[derive(Debug, Clone)]
 pub enum RawExpressionElement {
     /// Operator
     Operator(Operator),
 
-    /// Literal or variable reference
+    /// Literal
     Literal(Literal),
+
+    /// Variable reference
+    Reference(String),
 
     /// Sub expression (expression in parentheses)
     SubExpression(Box<RawExpression>),
@@ -79,27 +92,11 @@ pub enum RawExpressionElement {
 } // enum RawExpressionElement
 
 /// Non-parsed expression representation structure
+#[derive(Debug, Clone)]
 pub struct RawExpression {
     /// Set of expression elements
     pub elements: Vec<RawExpressionElement>,
 } // struct RawExpression
-
-/// Unary operation representation structure
-#[derive(Debug)]
-pub struct UnaryOperation {
-    /// Operand, actually
-    pub operand: Box<Expression>,
-} // struct UnaryOperation
-
-/// Binary operation representation structure
-#[derive(Debug)]
-pub struct BinaryOperation {
-    /// Left Hand Side
-    pub lhs: Box<Expression>,
-
-    /// Right Hand Side
-    pub rhs: Box<Expression>,
-} // struct BinaryOperation
 
 /// Expression value representation structures
 #[derive(Debug)]
@@ -116,41 +113,73 @@ pub enum Value {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum PrimitiveType {
+    /// 8 bit signed integer
     I8,
+
+    /// 8 bit unsigned integer
     U8,
+
+    /// 16 bit signed integer
     I16,
+
+    /// 16 bit unsigned integer
     U16,
+
+    /// 32 bit signed integer
     I32,
+
+    /// 32 bit unsigned integer
     U32,
+
+    /// 32 bit FP number
     F32,
+
+    /// 64 bit signed integer
     I64,
+
+    /// 64 bit unsigned integer
     U64,
+
+    /// 64 bit FP number
     F64,
 
+    /// Unsigned number with size of pointer
+    Usize,
+
+    /// Signed number with size of pointer
+    Isize,
+
+    /// Empty type
     Void,
+
+    /// Never-assigned type (type of return/break expressions, error handlers, etc)
     Never,
-}
+} // enum PrimitiveType
 
 impl PrimitiveType {
+    /// Parsing function
     pub fn parse(str: &str) -> Option<PrimitiveType> {
         match str {
-            "i8"   => Some(PrimitiveType::I8 ),
-            "u8"   => Some(PrimitiveType::U8 ),
-            "i16"  => Some(PrimitiveType::I16),
-            "u16"  => Some(PrimitiveType::U16),
-            "i32"  => Some(PrimitiveType::I32),
-            "u32"  => Some(PrimitiveType::U32),
-            "f32"  => Some(PrimitiveType::F32),
-            "i64"  => Some(PrimitiveType::I64),
-            "u64"  => Some(PrimitiveType::U64),
-            "f64"  => Some(PrimitiveType::F64),
-            "void" => Some(PrimitiveType::Void),
-            "!"    => Some(PrimitiveType::Never),
+            "i8"    => Some(PrimitiveType::I8   ),
+            "u8"    => Some(PrimitiveType::U8   ),
+            "i16"   => Some(PrimitiveType::I16  ),
+            "u16"   => Some(PrimitiveType::U16  ),
+            "i32"   => Some(PrimitiveType::I32  ),
+            "u32"   => Some(PrimitiveType::U32  ),
+            "f32"   => Some(PrimitiveType::F32  ),
+            "i64"   => Some(PrimitiveType::I64  ),
+            "u64"   => Some(PrimitiveType::U64  ),
+            "f64"   => Some(PrimitiveType::F64  ),
+            "usize" => Some(PrimitiveType::Usize),
+            "isize" => Some(PrimitiveType::Isize),
+            "void"  => Some(PrimitiveType::Void ),
+            "!"     => Some(PrimitiveType::Never),
             _ => None,
         }
-    }
+    } // fn parse
 }
 
+/// Type representation structure
 #[derive(Debug, Clone)]
 pub enum Type {
     Named(String),
@@ -172,25 +201,15 @@ pub enum Type {
     },
 }
 
-/// Expression tree element representation enumeration
-#[derive(Debug)]
-pub enum Expression {
-    /// Value
-    Value(Value),
-
-    /// Binary operation
-    BinaryOperation(BinaryOperation),
-
-    /// Unary operation
-    UnaryOperation(UnaryOperation),
-}
-
+/// Enumeration variant representaion structure
 #[derive(Clone, Debug)]
 pub struct EnumVariant {
+    /// Variant name
     pub name: String,
-    pub explicit_index: Option<usize>,
-}
 
+    /// Explicit variant index
+    pub explicit_index: Option<usize>,
+} // struct EnumVariant
 
 /// Some declaration representation enumeration (enum and struct will be added later)
 #[derive(Debug)]
@@ -209,7 +228,7 @@ pub enum Declaration {
         ty: Type,
 
         /// Initializer expression
-        initializer: Option<Expression>,
+        initializer: Option<RawExpression>,
     },
     /// Structure
     Structure {
@@ -230,10 +249,20 @@ pub struct Module {
     pub declarations: HashMap<String, Declaration>,
 } // struct Module
 
-fn parse_expression<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], RawExpression> {
-    todo!()
-}
+/// Expression parsing function
+/// * `tokens` - token set
+/// * Returns parsing result.
+fn parse_raw_expression<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], RawExpression> {
+    // At least now this function can handle only literal...
+    comb::map(
+        parse::literal,
+        |lit| RawExpression {
+            elements: vec![RawExpressionElement::Literal(lit)]
+        }
+    )(tl)
+} // fn parse_raw_expression
 
+/// Variable parsing function
 fn parse_variable<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
     comb::map(
         comb::all((
@@ -245,12 +274,9 @@ fn parse_variable<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (
                 comb::map(
                     comb::all((
                         parse::symbol(Symbol::Equal),
-                        parse::literal,
+                        parse_raw_expression,
                     )),
-                    |(_, val)| Some(Expression::Value(match val {
-                        Literal::Floating(flt) => Value::Floating(flt),
-                        Literal::Integer(int) => Value::Integer(int),
-                    }))
+                    |(_, exp)| Some(exp),
                 ),
                 comb::map(
                     comb::identity,
@@ -261,8 +287,9 @@ fn parse_variable<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (
         )),
         |(_, name, _, ty, initializer, _)| (name, Declaration::Variable { ty, initializer })
     )(tokens)
-}
+} // fn parse_variable
 
+/// Function parsing function
 fn parse_function<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
     comb::map(
         comb::all((
@@ -290,8 +317,9 @@ fn parse_function<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (
             output,
         })
     )(tokens)
-}
+} // fn parse_function
 
+/// Structure parsing function
 fn parse_structure<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
     comb::map(
         comb::all((
@@ -318,8 +346,9 @@ fn parse_structure<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], 
             Declaration::Structure { elements }
         )
     )(tokens)
-}
+} // fn parse_structure
 
+/// Enumeration declaration parsing function
 fn parse_enumeration<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
     comb::map(
         comb::all((
@@ -333,15 +362,9 @@ fn parse_enumeration<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>]
                         comb::map(
                             comb::all((
                                 parse::symbol(Symbol::Equal),
-                                comb::filter_map(
-                                    parse::literal,
-                                    |literal| match literal {
-                                        Literal::Integer(i) => Some(i as usize),
-                                        _ => None,
-                                    }
-                                )
+                                parse::integer_literal,
                             )),
-                            |(_, v)| Some(v)
+                            |(_, v)| Some(v as usize)
                         ),
                         comb::map(
                             comb::identity,
@@ -360,7 +383,7 @@ fn parse_enumeration<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>]
         )),
         |(_, name, _, variants, _)| (name, Declaration::Enumeration { variants })
     )(tokens)
-}
+} // fn parse_enumeration
 
 impl Module {
     /// Module from token list parsing function
@@ -385,6 +408,6 @@ impl Module {
             declarations: declarations(tokens).ok()?.1,
         })
     }
-}
+} // fn parse
 
 // fn ast.rs

@@ -10,7 +10,7 @@ struct Vec3f {
 
 fn main() {
     // Source
-    let source = include_str!("../examples/declarations.kl");
+    let source = include_str!("../examples/declarations.klh");
 
     // Tokenize file
     let tokens = lexer::TokenIterator::new(source).collect::<Vec<_>>();

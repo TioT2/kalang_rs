@@ -1,17 +1,33 @@
 mod all;
 mod any;
+mod str;
 
 pub use all::*;
 pub use any::*;
+pub use str::*;
 
+/// Parser work result type
+/// * 't - lifetime of destination object
+/// * D - parsed object
+/// * O - output type
 pub type PResult<'t, D, O> = Result<(D, O), D>;
 
+/// Parser trait
 pub trait Parser<'t, D: 't, O>: Fn(D) -> PResult<'t, D, O> {
 }
 
+/// Implementation of parser trait for parsing function
 impl<'t, D: 't, O, F: Fn(D) -> PResult<'t, D, O>> Parser<'t, D, O> for F {
 }
 
+/// Identity parser (don't changes anything in input data and yields ())
+pub fn identity<'t, D: 't>(data: D) -> PResult<'t, D, ()> {
+    Ok((data, ()))
+} // fn identity
+
+/// Parser mapping function
+/// * parser - parser to map output of
+/// * f      - mapping function
 pub fn map<'t, D: 't, I, O>(
     parser: impl Parser<'t, D, I>,
     f: impl Fn(I) -> O
@@ -19,26 +35,11 @@ pub fn map<'t, D: 't, I, O>(
     move |str: D| -> PResult<'t, D, O> {
         parser(str).map(|(s, i)| (s, f(i)))
     }
-}
+} // fn map
 
-pub fn identity<'t, D: 't>(data: D) -> PResult<'t, D, ()> {
-    Ok((data, ()))
-}
-
-pub fn filter_map<'t, D: 't + Clone, I, O>(
-    parser: impl Parser<'t, D, I>,
-    f: impl Fn(I) -> Option<O>
-) -> impl Parser<'t, D, O> {
-    move |tl: D| -> PResult<'t, D, O> {
-        if let Ok((ntl, i)) = parser(tl.clone()) {
-            if let Some(o) = f(i) {
-                return Ok((ntl, o));
-            }
-        }
-        return Err(tl);
-    }
-}
-
+/// Filtering function
+/// * parser - parser to filter 
+/// * f      - function to filter result of parser by
 pub fn filter<'t, D: 't + Clone, O>(
     parser: impl Parser<'t, D, O>,
     f: impl Fn(&O) -> bool
@@ -52,19 +53,23 @@ pub fn filter<'t, D: 't + Clone, O>(
 
         return Err(str);
     }
-}
+} // fn filter
 
-pub fn literal<'t>(
-    literal: &'static str
-) -> impl Parser<'t, &'t str, ()> {
-    move |str: &'t str| -> PResult<'t, &'t str, ()> {
-        if str.starts_with(literal) {
-            Ok((&str[literal.len()..], ()))
-        } else {
-            Err(str)
+/// Actually, combination of filter and map combinators.
+/// <result>.is_some() is actually filter function test
+pub fn filter_map<'t, D: 't + Clone, I, O>(
+    parser: impl Parser<'t, D, I>,
+    f: impl Fn(I) -> Option<O>
+) -> impl Parser<'t, D, O> {
+    move |tl: D| -> PResult<'t, D, O> {
+        if let Ok((ntl, i)) = parser(tl.clone()) {
+            if let Some(o) = f(i) {
+                return Ok((ntl, o));
+            }
         }
+        return Err(tl);
     }
-}
+} // fn filter_map
 
 pub fn repeat<'t, D: 't + Clone, T, O>(
     parser: impl Parser<'t, D, T>,
@@ -117,145 +122,5 @@ pub fn repeat_with_separator<'t, D: 't + Clone, T, O>(
         }
     }
 }
-
-pub fn integer<'t>(
-    base: u64,
-    char_to_number: impl Fn(char) -> Option<u64>
-) -> impl Parser<'t, &'t str, u64> {
-    move |str: &'t str| -> PResult<'t, &'t str, u64> {
-        let mut digits = str
-            .chars()
-            .map(|char| (char.len_utf8(), char_to_number(char)))
-            .take_while(|(_, n)| n.is_some())
-            .map(|(len, n)| (len, n.unwrap()));
-
-        let init = digits.next().ok_or(str)?;
-
-        let (len, result) = digits.fold(init, |(parsed_len, result), (digit_len, digit)| {
-            (
-                parsed_len + digit_len,
-                result * base + digit,
-            )
-        });
-
-        Ok((&str[len..], result))
-    }
-}
-
-pub fn any_char<'t>(input: &'t str) -> PResult<&'t str, char> {
-    match input.chars().next() {
-        Some(next) => Ok((&input[next.len_utf8()..], next)),
-        None => Err(input),
-    }
-}
-
-pub fn any_whitespace<'t>(input: &'t str, ) -> PResult<&'t str, char> {
-    if let Some(next) = input.chars().next().filter(|v| v.is_whitespace()) {
-        Ok((&input[next.len_utf8()..], next))
-    } else {
-        Err(input)
-    }
-}
-
-pub fn hexadecimal_number<'t>(str: &'t str) -> PResult<&'t str, u64> {
-    fn char_to_hex_number(ch: char) -> Option<u64> {
-        match ch {
-            '0'..='9' => Some(ch as u64 - '0' as u64),
-            'A'..='F' => Some(ch as u64 - 'A' as u64 + 10),
-            'a'..='f' => Some(ch as u64 - 'a' as u64 + 10),
-            _         => None
-        }
-    }
-
-    integer(16, char_to_hex_number)(str)
-}
-
-pub fn decimal_number<'t>(str: &'t str) -> PResult<&'t str, u64> {
-    fn char_to_decimal_number(ch: char) -> Option<u64> {
-        match ch {
-            '0'..='9' => Some(ch as u64 - '0' as u64),
-            _ => None
-        }
-    }
-
-    integer(10, char_to_decimal_number)(str)
-}
-
-pub fn binary_number<'t>(str: &'t str) -> PResult<&'t str, u64> {
-    fn char_to_binary_number(ch: char) -> Option<u64> {
-        match ch {
-            '0' => Some(0),
-            '1' => Some(1),
-            _   => None,
-        }
-    }
-
-    integer(2, char_to_binary_number)(str)
-}
-
-pub fn floating_number<'t>(mut str: &'t str) -> PResult<&'t str, f64> {
-    fn parse_sign<'t>(str: &'t str) -> PResult<&'t str, i32> {
-        match str.chars().next() {
-            Some('+' | '.') => Ok((&str['+'.len_utf8()..], 1)),
-            Some('0'..='9') => Ok((str, 1)),
-            Some('-') => Ok((&str['-'.len_utf8()..], -1)),
-            _ => Err(str)
-        }
-    }
-
-    let sign;
-    let integer_part;
-
-    (str, sign) = parse_sign(str)?;
-    (str, integer_part) = decimal_number(str)?;
-
-    // str
-    let fractional_part = if str.starts_with('.') {
-        str = &str[1..];
-
-        let (result, _, index) = str
-            .char_indices()
-            .take_while(|(_, char)| char.is_numeric())
-            .try_fold((0.0f64, 0.1f64, 0), |(res, power, _), (index, char)| {
-                let num = match char {
-                    '0'..='9' => char as u8 - '0' as u8,
-                    _ => unreachable!("HOW THE FUCK IS IT POSSIBLE")
-                };
-
-                Some((
-                    res + num as f64 * power,
-                    power * 0.1,
-                    index + 1
-                ))
-            })
-            .unwrap_or((0.0, 0.0, 0));
-
-        str = &str[index..];
-
-        Some(result)
-    } else {
-        None
-    };
-
-    let exponent = if str.starts_with('e') {
-        let exp_sign;
-        let exp;
-
-        str = &str[1..];
-
-        (str, exp_sign) = parse_sign(str)?;
-        (str, exp) = decimal_number(str)?;
-
-        Some(exp as i32 * exp_sign)
-    } else {
-        None
-    };
-
-    if fractional_part.is_none() && exponent.is_none() {
-        return Err(str);
-    }
-
-    Ok((str, sign as f64 * (integer_part as f64 + fractional_part.unwrap_or(0.0)) * 10.0f64.powi(exponent.unwrap_or(0))))
-} // fn floating_number
 
 // lib.rs

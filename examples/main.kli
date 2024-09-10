@@ -1,5 +1,4 @@
 // ^-^ <- koshachya morda
-// import std;
 
 export fn main() {
     let sum: u32 = {
@@ -14,7 +13,7 @@ export fn main() {
         }
 
         acc
-    }; // {} ; {} ; {} ; {} ; while i < L { acc arr i index as(u32) add_assign i 1 add_assign ; {} ; } acc ;
+    };
 
     let a: f32 = sum as f32;
     let b: f32 = 41.0;

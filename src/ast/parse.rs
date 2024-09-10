@@ -2,7 +2,7 @@ use comb::{PResult, Parser};
 
 use crate::lexer::{Literal, Symbol, Token};
 
-use super::{Operator, PrimitiveType, Type};
+use super::{PrimitiveType, Type};
 
 /// Some symbol parser getting function
 pub fn symbol<'t>(match_sm: Symbol) -> impl Parser<'t, &'t [Token<'t>], ()> {
@@ -15,31 +15,7 @@ pub fn symbol<'t>(match_sm: Symbol) -> impl Parser<'t, &'t [Token<'t>], ()> {
 
         return Err(tl);
     }
-}
-
-/// Any operator parser
-pub fn operator<'t>(tl: &'t [Token]) -> PResult<'t, &'t [Token<'t>], Operator> {
-    let Some(Token::Symbol(symbol)) = tl.get(0) else {
-        return Err(tl);
-    };
-    let symbol = *symbol;
-
-    let oper = match symbol {
-        Symbol::Plus     => Operator::Add,
-        Symbol::Minus    => Operator::Sub,
-        Symbol::Asterisk => Operator::Mul,
-        Symbol::Slash    => Operator::Div,
-
-        Symbol::PlusEqual     => Operator::AddAssign,
-        Symbol::MinusEqual    => Operator::SubAssign,
-        Symbol::AsteriskEqual => Operator::MulAssign,
-        Symbol::SlashEqual    => Operator::DivAssign,
-
-        _ => return Err(tl),
-    };
-
-    Ok((&tl[1..], oper))
-}
+} // fn symbol
 
 /// Any ident parser
 pub fn ident<'t>(tl: &'t [Token]) -> PResult<'t, &'t [Token<'t>], &'t str> {
@@ -48,7 +24,7 @@ pub fn ident<'t>(tl: &'t [Token]) -> PResult<'t, &'t [Token<'t>], &'t str> {
     } else {
         Err(tl)
     }
-}
+} // fn ident
 
 /// Any literal parser
  pub fn literal<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Literal> {
@@ -57,7 +33,16 @@ pub fn ident<'t>(tl: &'t [Token]) -> PResult<'t, &'t [Token<'t>], &'t str> {
     } else {
         Err(tl)
     }
-}
+} // fn literal
+
+/// INT literal parsing function
+pub fn integer_literal<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], u64> {
+    if let Some(Token::Literal(Literal::Integer(int))) = tl.get(0) {
+        Ok((&tl[1..], *int))
+    } else {
+        Err(tl)
+    }
+} // fn integer_literal
 
 pub fn ty<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Type> {
     let token = tl.get(0).ok_or(tl)?;

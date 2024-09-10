@@ -1,0 +1,35 @@
+/// Queue declaration module
+
+import "std_alloc.klh";
+
+struct bi_list_element {
+    prev : *mut bi_list_element,
+    next : *mut bi_list_element,
+
+    data : void
+    // data will be placed after
+};
+
+export struct bi_list {
+    element_size : usize,
+    first        : *mut bi_list_element,
+    last         : *mut bi_list_element
+};
+
+export fn bi_list_create(element_size: usize) -> bi_list {
+    return bi_list {
+        element_size : element_size,
+        first        : null,
+        last         : null
+    };
+}
+
+export fn bi_list_destroy(list: bi_list) {
+    let mut elem: *mut bi_list_element = list.first;
+
+    while elem != null {
+        let next = elem->next;
+        std_free(elem);
+        elem = next;
+    }
+}
