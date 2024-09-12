@@ -1,7 +1,5 @@
 use comb::{PResult, Parser};
-
 use crate::lexer::{Literal, Symbol, Token};
-
 use super::{PrimitiveType, Type};
 
 /// Some symbol parser getting function
@@ -35,7 +33,7 @@ pub fn ident<'t>(tl: &'t [Token]) -> PResult<'t, &'t [Token<'t>], &'t str> {
     }
 } // fn literal
 
-/// INT literal parsing function
+/// Integer literal parsing function
 pub fn integer_literal<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], u64> {
     if let Some(Token::Literal(Literal::Integer(int))) = tl.get(0) {
         Ok((&tl[1..], *int))
@@ -44,6 +42,7 @@ pub fn integer_literal<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], 
     }
 } // fn integer_literal
 
+/// Type parsing function
 pub fn ty<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Type> {
     let token = tl.get(0).ok_or(tl)?;
 
@@ -133,5 +132,6 @@ pub fn ty<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Type> {
         }
         _ => Err(tl),
     };
-}
+} // fn ty
 
+// parse.rs

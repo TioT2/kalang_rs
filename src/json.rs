@@ -157,13 +157,15 @@ fn parse_object(str: &str) -> PResult<&str, Json> {
     )(str)
 } // fn parse_object
 
+/// JSON number parsing function
 fn parse_number(str: &str) -> PResult<&str, Json> {
     map(
         comb::floating_number,
         Json::Number
     )(str)
-}
+} // fn parse_number
 
+/// JSON parsing function
 fn parse_json(str: &str) -> PResult<&str, Json> {
     any((
         parse_string,
@@ -173,4 +175,4 @@ fn parse_json(str: &str) -> PResult<&str, Json> {
         parse_object,
         parse_number
     ))(str)
-}
+} // fn parse_json

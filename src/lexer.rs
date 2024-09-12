@@ -186,23 +186,12 @@ impl<'t> Iterator for TokenIterator<'t> {
             // Try to parse integer literal
             comb::map(
                 comb::any((
-                    comb::map(
-                        comb::all((
-                            comb::literal("0b"),
-                            comb::binary_number,
-                        )),
-                        |(_, n)| n
-                    ),
-                    comb::map(
-                        comb::all((
-                            comb::literal("0x"),
-                            comb::hexadecimal_number,
-                        )),
-                        |(_, n)| n
-                    ),
-                    comb::decimal_number,
+                    comb::all((comb::literal("0b"), comb::binary_number     )), // Binary literal
+                    comb::all((comb::literal("0x"), comb::hexadecimal_number)), // Hexadecimal literal
+                    comb::all((comb::literal("0o"), comb::octal_number      )), // Octal literal
+                    comb::all((comb::identity     , comb::decimal_number    )), // Decimal literal
                 )),
-                Literal::Integer,
+                |(_, n)| Literal::Integer(n)
             )
         ));
 
@@ -235,7 +224,7 @@ impl<'t> Iterator for TokenIterator<'t> {
                 comb::map(comb::literal("-=" ), |_| Symbol::MinusEqual),
                 comb::map(comb::literal("/=" ), |_| Symbol::SlashEqual),
                 comb::map(comb::literal("*=" ), |_| Symbol::AsteriskEqual),
-                
+
                 comb::map(comb::literal("="  ), |_| Symbol::Equal),
                 comb::map(comb::literal("!"  ), |_| Symbol::Exclamation),
                 comb::map(comb::literal("+"  ), |_| Symbol::Plus),

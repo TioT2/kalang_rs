@@ -2,12 +2,6 @@ pub mod json;
 pub mod ast;
 pub mod lexer;
 
-struct Vec3f {
-    x: f32,
-    y: f32,
-    z: f32,
-}
-
 fn main() {
     // Source
     let source = include_str!("../examples/declarations.klh");

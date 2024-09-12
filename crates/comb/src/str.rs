@@ -57,7 +57,7 @@ pub fn any_whitespace<'t>(input: &'t str, ) -> PResult<&'t str, char> {
     }
 } // fn any_whitespace
 
-/// Hexadecimal number parser
+/// Hexadecimal (base-16) number parser
 pub fn hexadecimal_number<'t>(str: &'t str) -> PResult<&'t str, u64> {
     fn char_to_hex_number(ch: char) -> Option<u64> {
         match ch {
@@ -69,9 +69,21 @@ pub fn hexadecimal_number<'t>(str: &'t str) -> PResult<&'t str, u64> {
     }
 
     integer(16, char_to_hex_number)(str)
-} // fn hexadecimal
+} // fn hexadecimal_number
 
-/// Decimal number parser
+/// Octal (base-8) number parser
+pub fn octal_number<'t>(str: &'t str) -> PResult<&'t str, u64> {
+    fn char_to_oct_number(ch: char) -> Option<u64> {
+        match ch {
+            '0'..='7' => Some(ch as u64 - '0' as u64),
+            _ => None,
+        }
+    }
+
+    integer(8, char_to_oct_number)(str)
+} // fn octal_number
+
+/// Decimal (base-10) number parser
 pub fn decimal_number<'t>(str: &'t str) -> PResult<&'t str, u64> {
     fn char_to_decimal_number(ch: char) -> Option<u64> {
         match ch {
@@ -83,7 +95,7 @@ pub fn decimal_number<'t>(str: &'t str) -> PResult<&'t str, u64> {
     integer(10, char_to_decimal_number)(str)
 } // fn decimal_number
 
-/// Binary number parsing
+/// Binary (base-2) number parsing
 pub fn binary_number<'t>(str: &'t str) -> PResult<&'t str, u64> {
     fn char_to_binary_number(ch: char) -> Option<u64> {
         match ch {

@@ -6,24 +6,9 @@ use comb::PResult;
 
 use crate::lexer::{Literal, Symbol, Token};
 
-pub enum OperatorInfo {
-    Binary {
-        is_left_assoc: bool,
-        priority: u8,
-    },
-    BrOpen,
-    BrClose,
-    Unary {
-        is_prefix: bool,
-    },
-}
-
 /// Mathematical operation representation structure
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Operator {
-    /// Value ignore postfix unary operator
-    Ignore,
-
     /// Addition
     Add,
 
@@ -49,54 +34,125 @@ pub enum Operator {
     DivAssign,
 } // enum Operator
 
-// pub enum Statement {
-//     Const {
-//         name: String,
-//         ty: Box<Type>,
-//         initializer: RawExpression,
-//     },
-//     Let {
-//         variable_name: String,
-//         is_mutable: bool,
-//         ty: Box<Type>,
-//         initializer: RawExpression,
-//     },
-//     Fn {
-//         name: String,
-//         inputs: Vec<(String, Type)>,
-//         output: Box<Type>,
-//         code: Vec<Statement>,
-//     },
-//     Expression {
-//         expr: RawExpression,
-//     },
-// }
+/// Variable mutability
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Mutability {
+    /// Constant (can be calculated in compiletime)
+    Const,
 
-/// Non-parsed expression representation structure
-#[derive(Debug, Clone)]
-pub enum RawExpressionElement {
-    /// Operator
-    Operator(Operator),
+    /// Immutable (may not be changed, calculated during initialization)
+    Immut,
 
-    /// Literal
-    Literal(Literal),
+    /// Mutable (may be changed)
+    Mut,
+} // enum Mutability
 
-    /// Variable reference
-    Reference(String),
+/// Expression representation structure
+#[derive(Debug)]
+pub enum Expression {
+    /// Just ident
+    Ident {
+        /// Ident
+        ident: String,
+    },
 
-    /// Sub expression (expression in parentheses)
-    SubExpression(Box<RawExpression>),
+    /// Literal (inline value)
+    Literal {
+        /// Literal
+        literal: Literal,
+    },
 
-    /// Sub expression (expression in square brackets)
-    IndexingOperator(Box<RawExpression>),
-} // enum RawExpressionElement
+    /// Code block
+    Block {
+        /// Block code
+        code: Vec<Statement>,
 
-/// Non-parsed expression representation structure
-#[derive(Debug, Clone)]
-pub struct RawExpression {
-    /// Set of expression elements
-    pub elements: Vec<RawExpressionElement>,
-} // struct RawExpression
+        /// Return value calculator
+        return_value: Option<Box<Expression>>,
+    },
+
+    /// Function call
+    Call {
+        /// Called object
+        callee: Box<Expression>,
+
+        /// Caller object
+        parameters: Vec<Expression>,
+    },
+
+    /// Stack access
+    Access {
+        /// Accessed object (array/tuple, initially)
+        object: Box<Expression>,
+
+        /// Access indices
+        indices: Vec<Expression>,
+    },
+
+    /// Binary operator
+    BinaryOperator {
+        /// Left hand side
+        lhs: Box<Expression>,
+
+        /// Right hand side
+        rhs: Box<Expression>,
+
+        /// Operator, actually
+        operator: Operator,
+    },
+
+    /// Unary operator
+    UnaryOperator {
+        /// Operand
+        operand: Box<Expression>,
+
+        /// Operator
+        operator: Operator,
+    },
+} // enum Expression
+
+/// The core object of AST - statement
+#[derive(Debug)]
+pub enum Statement {
+    /// Variable declaration
+    Let {
+        /// Name of connection to declare
+        variable_name: String,
+
+        /// Mutability (actually, evaluation rule)
+        mutability: Mutability,
+
+        /// Type
+        ty: Box<Type>,
+
+        /// Initializer expression
+        initializer: Box<Expression>,
+    },
+
+    /// Actually, just expression
+    Expression {
+        /// Contents
+        expr: Box<Expression>,
+    },
+
+    /// While statement
+    While {
+        condition: Box<Expression>,
+        code: Vec<Statement>,
+    },
+
+    /// If statement
+    If {
+        condition: Box<Expression>,
+        then_code: Vec<Statement>,
+        else_code: Vec<Statement>,
+    },
+
+    /// Function return statement
+    Return {
+        expression: Box<Expression>,
+    },
+} // enum Statement
 
 /// Expression value representation structures
 #[derive(Debug)]
@@ -111,7 +167,7 @@ pub enum Value {
     Variable(String),
 } // enum Value
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum PrimitiveType {
     /// 8 bit signed integer
     I8,
@@ -182,24 +238,45 @@ impl PrimitiveType {
 /// Type representation structure
 #[derive(Debug, Clone)]
 pub enum Type {
+    /// Named type (reference to previously declared structure/enumeration/etc.)
     Named(String),
+
+    /// Primitive
     Primitive(PrimitiveType),
+
+    /// Array
     Array {
+        /// Single element type
         element_type: Box<Type>,
+
+        /// Array size
         size: usize,
     },
+
+    /// Pointer
     Pointer {
+        /// Element type
         element_type: Box<Type>,
+
+        /// Element mutability
         is_mutable: bool,
     },
+
+    /// Tuple
     Tuple {
+        /// Set of element types
         element_types: Vec<Type>,
     },
+
+    /// Pointer to function
     FunctionPointer {
+        /// Set of function pointer inputs
         inputs: Vec<Type>,
+
+        /// Function output value
         output: Box<Type>,
     },
-}
+} // enum Type
 
 /// Enumeration variant representaion structure
 #[derive(Clone, Debug)]
@@ -211,7 +288,7 @@ pub struct EnumVariant {
     pub explicit_index: Option<usize>,
 } // struct EnumVariant
 
-/// Some declaration representation enumeration (enum and struct will be added later)
+/// Declaration representation enumeration
 #[derive(Debug)]
 pub enum Declaration {
     /// Function
@@ -222,19 +299,22 @@ pub enum Declaration {
         /// return value
         output: Type,
     },
-    /// Global variable (ded uebet)
+
+    /// Variable (ded uebet)
     Variable {
         /// Type
         ty: Type,
 
         /// Initializer expression
-        initializer: Option<RawExpression>,
+        initializer: Option<Box<Expression>>,
     },
+
     /// Structure
     Structure {
         /// Structure elements
         elements: Vec<(String, Type)>,
     },
+
     /// Enum
     Enumeration {
         /// Variants
@@ -252,15 +332,13 @@ pub struct Module {
 /// Expression parsing function
 /// * `tokens` - token set
 /// * Returns parsing result.
-fn parse_raw_expression<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], RawExpression> {
+fn parse_expression<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Expression> {
     // At least now this function can handle only literal...
     comb::map(
         parse::literal,
-        |lit| RawExpression {
-            elements: vec![RawExpressionElement::Literal(lit)]
-        }
+        |literal| Expression::Literal { literal }
     )(tl)
-} // fn parse_raw_expression
+} // fn parse_expression
 
 /// Variable parsing function
 fn parse_variable<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
@@ -274,7 +352,10 @@ fn parse_variable<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (
                 comb::map(
                     comb::all((
                         parse::symbol(Symbol::Equal),
-                        parse_raw_expression,
+                        comb::map(
+                            parse_expression,
+                            Box::new
+                        ),
                     )),
                     |(_, exp)| Some(exp),
                 ),
@@ -407,7 +488,7 @@ impl Module {
         Some(Module {
             declarations: declarations(tokens).ok()?.1,
         })
-    }
-} // fn parse
+    } // fn parse
+} // impl Module
 
 // fn ast.rs
