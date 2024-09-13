@@ -124,6 +124,7 @@ fn parse_array(str: &str) -> PResult<&str, Json> {
     )(str)
 } // fn parse_array
 
+/// Object parsing function
 fn parse_object(str: &str) -> PResult<&str, Json> {
     let object_pair = map(
         all((

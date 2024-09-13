@@ -1,3 +1,4 @@
+
 mod parse;
 
 use std::collections::HashMap;
@@ -21,6 +22,12 @@ pub enum Operator {
     /// Division
     Div,
 
+    /// Left move
+    Shl,
+
+    /// Right move
+    Shr,
+
     /// Addition with assignment
     AddAssign,
 
@@ -32,7 +39,63 @@ pub enum Operator {
 
     /// Division with assignment
     DivAssign,
+
+    /// Left move with assignment
+    ShlAssign,
+
+    /// Right move with assignment
+    ShrAssign,
+
+    /// Less than (<)
+    Lt,
+
+    /// Greater than (>)
+    Gt,
+
+    /// Less or equal (<=)
+    Le,
+
+    /// Greater or equal (>=)
+    Ge,
+
+    /// Equal (==)
+    Eq,
+
+    /// Not equal (!=)
+    Ne,
+
+    /// Assignment
+    Assign,
 } // enum Operator
+
+impl Operator {
+    pub fn from_symbol(symbol: Symbol) -> Option<Operator> {
+        let sym = match symbol {
+            Symbol::Plus             => Self::Add,
+            Symbol::Minus            => Self::Sub,
+            Symbol::Asterisk         => Self::Mul,
+            Symbol::Slash            => Self::Div,
+            Symbol::Shl              => Self::Shl,
+            Symbol::Shr              => Self::Shr,
+            Symbol::PlusEqual        => Self::AddAssign,
+            Symbol::MinusEqual       => Self::SubAssign,
+            Symbol::AsteriskEqual    => Self::MulAssign,
+            Symbol::SlashEqual       => Self::DivAssign,
+            Symbol::ShlEqual         => Self::ShlAssign,
+            Symbol::ShrEqual         => Self::ShrAssign,
+            Symbol::TriBrOpen        => Self::Lt,
+            Symbol::TriBrClose       => Self::Gt,
+            Symbol::TriBrOpenEqual   => Self::Le,
+            Symbol::TriBrCloseEqual  => Self::Ge,
+            Symbol::EqualEqual       => Self::Eq,
+            Symbol::ExclamationEqual => Self::Ne,
+            Symbol::Equal            => Self::Assign,
+            _ => return None,
+        };
+
+        Some(sym)
+    }
+}
 
 /// Variable mutability
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -137,19 +200,28 @@ pub enum Statement {
 
     /// While statement
     While {
+        /// While condition
         condition: Box<Expression>,
+
+        /// While operator code
         code: Vec<Statement>,
     },
 
     /// If statement
     If {
+        /// Condition
         condition: Box<Expression>,
+
+        /// Code executed then condition -> true
         then_code: Vec<Statement>,
+
+        /// Code executed then condition -> false
         else_code: Vec<Statement>,
     },
 
     /// Function return statement
     Return {
+        /// Resulting expression
         expression: Box<Expression>,
     },
 } // enum Statement
@@ -329,10 +401,72 @@ pub struct Module {
     pub declarations: HashMap<String, Declaration>,
 } // struct Module
 
+#[derive(Debug)]
+enum PostfixStackValue {
+    Operator(Operator),
+    Expression(Expression),
+}
+
+fn parse_expression_inverse<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Vec<PostfixStackValue>> {
+    todo!()
+}
+
 /// Expression parsing function
 /// * `tokens` - token set
 /// * Returns parsing result.
 fn parse_expression<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Expression> {
+    // tl      -> postfix
+    // postfix -> AST
+
+    let mut operator_stack = Vec::<Operator>::new();
+    let mut operand_stack = Vec::<Expression>::new();
+
+    let mut postfix_result = Vec::<PostfixStackValue>::new();
+
+    enum ParserState {
+        Prefix,
+        Suffix,
+        Done,
+    }
+
+    let mut state = ParserState::Prefix;
+
+    // postfix parsing
+    'expr_loop: loop {
+        let token = match tl.get(0) {
+            Some(tok) => tok,
+            None => break 'expr_loop
+        };
+        let next_token = tl.get(1);
+
+        let operator = match token {
+            Token::Symbol(symbol) => Operator::from_symbol(*symbol),
+            _ => None,
+        };
+
+        match state {
+            ParserState::Prefix => {
+                if matches!(token, Token::Symbol(Symbol::RoundBrOpen)) || matches!(operator, Some(Operator::Sub)) || matches!(operator, Some(Operator::Add)) {
+
+                } else if matches!(token, Token::Literal(_)) {
+
+                } else if matches!(token, Token::Ident(_)) {
+
+                } else {
+
+                }
+            }
+            ParserState::Suffix => {
+
+            }
+            ParserState::Done => {
+
+            }
+        }
+
+        break 'expr_loop;
+    }
+
     // At least now this function can handle only literal...
     comb::map(
         parse::literal,

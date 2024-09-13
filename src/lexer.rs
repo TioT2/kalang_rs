@@ -103,7 +103,7 @@ pub enum Symbol {
     Equal,
 
     /// ==
-    DoubleEqual,
+    EqualEqual,
 
     /// !
     Exclamation,
@@ -164,7 +164,7 @@ fn ident<'t>(str: &'t str) -> PResult<'t, &'t str, &'t str> {
 /// Source -> Tokens conversion iterator
 #[derive(Debug)]
 pub struct TokenIterator<'t> {
-    /// rest of source to parse
+    /// Rest of source to parse
     rest: &'t str,
 } // struct TokenIterator
 
@@ -218,7 +218,7 @@ impl<'t> Iterator for TokenIterator<'t> {
                 comb::map(comb::literal(">"  ), |_| Symbol::TriBrClose),
             )),
             comb::any((
-                comb::map(comb::literal("==" ), |_| Symbol::DoubleEqual),
+                comb::map(comb::literal("==" ), |_| Symbol::EqualEqual),
                 comb::map(comb::literal("!=" ), |_| Symbol::ExclamationEqual),
                 comb::map(comb::literal("+=" ), |_| Symbol::PlusEqual),
                 comb::map(comb::literal("-=" ), |_| Symbol::MinusEqual),
@@ -232,16 +232,20 @@ impl<'t> Iterator for TokenIterator<'t> {
                 comb::map(comb::literal("/"  ), |_| Symbol::Slash),
                 comb::map(comb::literal("*"  ), |_| Symbol::Asterisk),
             )),
-            comb::map(comb::literal("("  ), |_| Symbol::RoundBrOpen),
-            comb::map(comb::literal(")"  ), |_| Symbol::RoundBrClose),
-            comb::map(comb::literal("["  ), |_| Symbol::SquareBrOpen),
-            comb::map(comb::literal("]"  ), |_| Symbol::SquareBrClose),
-            comb::map(comb::literal("{"  ), |_| Symbol::CurlyBrOpen),
-            comb::map(comb::literal("}"  ), |_| Symbol::CurlyBrClose),
-            comb::map(comb::literal(";"  ), |_| Symbol::Semicolon),
-            comb::map(comb::literal(":"  ), |_| Symbol::Colon),
-            comb::map(comb::literal("#"  ), |_| Symbol::Hash),
-            comb::map(comb::literal(","  ), |_| Symbol::Comma),
+            comb::any((
+                comb::map(comb::literal("("  ), |_| Symbol::RoundBrOpen),
+                comb::map(comb::literal(")"  ), |_| Symbol::RoundBrClose),
+                comb::map(comb::literal("["  ), |_| Symbol::SquareBrOpen),
+                comb::map(comb::literal("]"  ), |_| Symbol::SquareBrClose),
+                comb::map(comb::literal("{"  ), |_| Symbol::CurlyBrOpen),
+                comb::map(comb::literal("}"  ), |_| Symbol::CurlyBrClose),
+            )),
+            comb::any((
+                comb::map(comb::literal(";"  ), |_| Symbol::Semicolon),
+                comb::map(comb::literal(":"  ), |_| Symbol::Colon),
+                comb::map(comb::literal("#"  ), |_| Symbol::Hash),
+                comb::map(comb::literal(","  ), |_| Symbol::Comma),
+            )),
         ));
 
         let comment = comb::all((
