@@ -137,9 +137,9 @@ pub enum Expression {
     /// Function call
     Call {
         /// Called object
-        callee: Box<Expression>,
+        object: Box<Expression>,
 
-        /// Caller object
+        /// Call parameters
         parameters: Vec<Expression>,
     },
 
@@ -402,65 +402,139 @@ pub struct Module {
 } // struct Module
 
 #[derive(Debug)]
-enum PostfixStackValue {
+enum InverseStackValue {
+    /// Operator representation structure
     Operator(Operator),
+
+    /// Expression
     Expression(Expression),
 }
 
-fn parse_expression_inverse<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Vec<PostfixStackValue>> {
-    todo!()
+/// Internal helper enum
+enum IndexingOrCall {
+    /// Is indexing
+    Indexing,
+    /// Is call
+    Call,
+}
+
+/// Indexing or function call
+fn parse_indexing_or_call<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token], (IndexingOrCall, Vec<Expression>)> {
+    let (indexing_or_call, expected_end) = match tl.get(0) {
+        Some(Token::Symbol(Symbol::RoundBrOpen)) => (IndexingOrCall::Call, Symbol::RoundBrClose),
+        Some(Token::Symbol(Symbol::SquareBrOpen)) => (IndexingOrCall::Indexing, Symbol::SquareBrClose),
+        _ => return Err(tl),
+    };
+
+    // parse set of subexpressions
+    tl = &tl[1..];
+
+    let arguments;
+
+    (tl, (arguments, _)) = comb::all((
+        // parse arguments
+        comb::repeat_with_separator(
+            parse_expression,
+            parse::symbol(Symbol::Comma),
+            Vec::new,
+            |mut vec, arg| {
+                vec.push(arg);
+                vec
+            }
+        ),
+        // parse symbol
+        parse::symbol(expected_end),
+    ))(tl)?;
+
+    Ok((tl, (indexing_or_call, arguments)))
 }
 
 /// Expression parsing function
 /// * `tokens` - token set
 /// * Returns parsing result.
-fn parse_expression<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Expression> {
-    // tl      -> postfix
-    // postfix -> AST
+fn parse_expression<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Expression> {
 
+    // Stack of operators
     let mut operator_stack = Vec::<Operator>::new();
-    let mut operand_stack = Vec::<Expression>::new();
 
-    let mut postfix_result = Vec::<PostfixStackValue>::new();
+    // (Toklist -> Inverse) parsing result
+    let mut result = Vec::<InverseStackValue>::new();
 
-    enum ParserState {
-        Prefix,
-        Suffix,
-        Done,
-    }
+    // Add parser state??
 
-    let mut state = ParserState::Prefix;
-
-    // postfix parsing
+    // Postfix parsing
     'expr_loop: loop {
         let token = match tl.get(0) {
             Some(tok) => tok,
-            None => break 'expr_loop
-        };
-        let next_token = tl.get(1);
-
-        let operator = match token {
-            Token::Symbol(symbol) => Operator::from_symbol(*symbol),
-            _ => None,
+            None => break 'expr_loop,
         };
 
-        match state {
-            ParserState::Prefix => {
-                if matches!(token, Token::Symbol(Symbol::RoundBrOpen)) || matches!(operator, Some(Operator::Sub)) || matches!(operator, Some(Operator::Add)) {
+        match token {
+            // Subexpression or ident (thing that can be indexed or called, actually)
+            Token::Symbol(Symbol::RoundBrOpen) | Token::Ident(_) => {
+                // parse subexpression
+                let subexpr;
+                let indexing_or_call;
 
-                } else if matches!(token, Token::Literal(_)) {
+                (tl, (subexpr, indexing_or_call)) = comb::all((
+                    comb::any((
+                        // Subexpression enclosed in parentheses
+                        comb::map(
+                            comb::all((
+                                parse::symbol(Symbol::RoundBrOpen),
+                                parse_expression,
+                                parse::symbol(Symbol::RoundBrClose),
+                            )),
+                            |(_, subexpr, _)| subexpr,
+                        ),
 
-                } else if matches!(token, Token::Ident(_)) {
+                        // Just ident, lol
+                        comb::map(
+                            parse::ident,
+                            |ident| Expression::Ident { ident: ident.to_string() },
+                        ),
+                    )),
+                    comb::any((
+                        // Indexing/Call
+                        comb::map(parse_indexing_or_call, |v| Some(v)),
 
-                } else {
+                        // Default case
+                        comb::map(comb::identity, |_| None),
+                    ))
+                ))(tl)?;
 
-                }
+                let expr = match indexing_or_call {
+
+                    // Subexpression was indexed
+                    Some((IndexingOrCall::Indexing, indices)) => Expression::Access {
+                        object: Box::new(subexpr),
+                        indices,
+                    },
+
+                    // Subexpression was called
+                    Some((IndexingOrCall::Call, parameters)) => Expression::Call {
+                        object: Box::new(subexpr),
+                        parameters,
+                    },
+
+                    // Subexpression last as-is
+                    None => subexpr,
+                };
+
+                // Append subexpression to result
+                result.push(InverseStackValue::Expression(expr));
             }
-            ParserState::Suffix => {
-
+            Token::Literal(literal) => {
+                // no indexing or call may occur after parsing
+                result.push(InverseStackValue::Expression(Expression::Literal { literal: *literal }));
+                tl = &tl[1..];
             }
-            ParserState::Done => {
-
+            Token::Symbol(sym) => if let Some(op) = Operator::from_symbol(*sym) {
+                operator_stack.push(op);
+                tl = &tl[1..];
+            } else {
+                // Unexpected no-op symbol in expression, it'll be handled later...
+                break 'expr_loop;
             }
         }
 
