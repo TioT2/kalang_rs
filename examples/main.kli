@@ -1,19 +1,15 @@
 // ^-^ <- koshachya morda
 
 export fn main() {
-    let sum: u32 = {
-        let len = 5;
-        let arr: [i32; 5] = [3, 1, 2, 4, 5];
-        let mut i: u32 = 0;
-        let mut acc: u32 = 0;
+    let len: i32 = 5;
+    let arr: [i32; 5] = [3, 1, 2, 4, 5];
+    let mut i: u32 = 0;
+    let mut sum: u32 = 0;
 
-        while i < len {
-            acc += arr[i] as u32;
-            i += 1;
-        }
-
-        acc
-    };
+    while i < len {
+        sum += arr[i] as u32;
+        i += 1;
+    }
 
     let a: f32 = sum as f32;
     let b: f32 = 41.0;

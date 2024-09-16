@@ -1,222 +1,14 @@
 
 mod parse;
+mod expression;
+mod operator;
+
+pub use operator::*;
 
 use std::collections::HashMap;
-
 use comb::PResult;
-
 use crate::lexer::{Literal, Symbol, Token};
-
-/// Mathematical operation representation structure
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Operator {
-    /// Addition
-    Add,
-
-    /// Substraction
-    Sub,
-
-    /// Multiplication
-    Mul,
-
-    /// Division
-    Div,
-
-    /// Left move
-    Shl,
-
-    /// Right move
-    Shr,
-
-    /// Addition with assignment
-    AddAssign,
-
-    /// Substraction with assignment
-    SubAssign,
-
-    /// Multiplication with assignment
-    MulAssign,
-
-    /// Division with assignment
-    DivAssign,
-
-    /// Left move with assignment
-    ShlAssign,
-
-    /// Right move with assignment
-    ShrAssign,
-
-    /// Less than (<)
-    Lt,
-
-    /// Greater than (>)
-    Gt,
-
-    /// Less or equal (<=)
-    Le,
-
-    /// Greater or equal (>=)
-    Ge,
-
-    /// Equal (==)
-    Eq,
-
-    /// Not equal (!=)
-    Ne,
-
-    /// Logical and (&&)
-    And,
-
-    /// Logical or (||)
-    Or,
-
-    /// Bitwise and (&)
-    BitAnd,
-
-    /// Bitwise or (|)
-    BitOr,
-
-    /// Birwise xor (^)
-    BitXor,
-
-    /// Logical and with assignment
-    AndAssign,
-
-    /// Logical or with assignment
-    OrAssign,
-
-    /// Bitwise and with assignment
-    BitAndAssign,
-
-    /// Bitwise or with assignment
-    BitOrAssign,
-
-    /// Bitwise xor with assignment
-    BitXorAssign,
-
-    /// Assignment
-    Assign,
-
-    /// Negation operator
-    UnaryMinus,
-
-    /// Unary addition operator
-    UnaryPlus,
-
-    /// Referencing operator
-    Reference,
-
-    /// Pointer dereference operator
-    Dereference,
-} // enum Operator
-
-/// Operator descriptor
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum OperatorInfo {
-    /// Binary operator info
-    Binary {
-        /// Operator priority
-        priority: u32,
-
-        /// * true  if operator is left-associative : a . b . c === (a . b) . c
-        /// * false if operator is right-associative: a . b . c === a . (b . c)
-        is_left_assoc: bool,
-    },
-    /// Unary operator info
-    Unary,
-}
-
-impl Operator {
-    /// Operator info getting function
-    pub fn info(self) -> OperatorInfo {
-        match self {
-            Self::Add          => OperatorInfo::Binary { priority:  6, is_left_assoc: true  },
-            Self::Sub          => OperatorInfo::Binary { priority:  6, is_left_assoc: true  },
-            Self::Mul          => OperatorInfo::Binary { priority:  5, is_left_assoc: true  },
-            Self::Div          => OperatorInfo::Binary { priority:  5, is_left_assoc: true  },
-            Self::Shl          => OperatorInfo::Binary { priority:  7, is_left_assoc: true  },
-            Self::Shr          => OperatorInfo::Binary { priority:  7, is_left_assoc: true  },
-            Self::AddAssign    => OperatorInfo::Binary { priority: 15, is_left_assoc: false },
-            Self::SubAssign    => OperatorInfo::Binary { priority: 15, is_left_assoc: false },
-            Self::MulAssign    => OperatorInfo::Binary { priority: 15, is_left_assoc: false },
-            Self::DivAssign    => OperatorInfo::Binary { priority: 15, is_left_assoc: false },
-            Self::ShlAssign    => OperatorInfo::Binary { priority: 15, is_left_assoc: false },
-            Self::ShrAssign    => OperatorInfo::Binary { priority: 15, is_left_assoc: false },
-            Self::Lt           => OperatorInfo::Binary { priority:  8, is_left_assoc: true  },
-            Self::Gt           => OperatorInfo::Binary { priority:  8, is_left_assoc: true  },
-            Self::Le           => OperatorInfo::Binary { priority:  8, is_left_assoc: true  },
-            Self::Ge           => OperatorInfo::Binary { priority:  8, is_left_assoc: true  },
-            Self::Eq           => OperatorInfo::Binary { priority:  9, is_left_assoc: true  },
-            Self::Ne           => OperatorInfo::Binary { priority:  9, is_left_assoc: true  },
-            Self::And          => OperatorInfo::Binary { priority: 13, is_left_assoc: true  },
-            Self::Or           => OperatorInfo::Binary { priority: 14, is_left_assoc: true  },
-            Self::BitAnd       => OperatorInfo::Binary { priority: 10, is_left_assoc: true  },
-            Self::BitOr        => OperatorInfo::Binary { priority: 12, is_left_assoc: true  },
-            Self::BitXor       => OperatorInfo::Binary { priority: 11, is_left_assoc: true  },
-            Self::AndAssign    => OperatorInfo::Binary { priority: 15, is_left_assoc: false },
-            Self::OrAssign     => OperatorInfo::Binary { priority: 15, is_left_assoc: false },
-            Self::BitAndAssign => OperatorInfo::Binary { priority: 15, is_left_assoc: false },
-            Self::BitOrAssign  => OperatorInfo::Binary { priority: 15, is_left_assoc: false },
-            Self::BitXorAssign => OperatorInfo::Binary { priority: 15, is_left_assoc: false },
-            Self::Assign       => OperatorInfo::Binary { priority: 15, is_left_assoc: false },
-            Self::UnaryMinus   => OperatorInfo::Unary,
-            Self::UnaryPlus    => OperatorInfo::Unary,
-            Self::Reference    => OperatorInfo::Unary,
-            Self::Dereference  => OperatorInfo::Unary,
-        }
-    }
-
-    pub fn from_symbol(symbol: Symbol) -> Option<Self> {
-        let sym = match symbol {
-            Symbol::Plus                 => Self::Add,
-            Symbol::Minus                => Self::Sub,
-            Symbol::Asterisk             => Self::Mul,
-            Symbol::Slash                => Self::Div,
-            Symbol::Shl                  => Self::Shl,
-            Symbol::Shr                  => Self::Shr,
-
-            Symbol::PlusEqual            => Self::AddAssign,
-            Symbol::MinusEqual           => Self::SubAssign,
-            Symbol::AsteriskEqual        => Self::MulAssign,
-            Symbol::SlashEqual           => Self::DivAssign,
-            Symbol::ShlEqual             => Self::ShlAssign,
-            Symbol::ShrEqual             => Self::ShrAssign,
-
-            Symbol::TriBrOpen            => Self::Lt,
-            Symbol::TriBrClose           => Self::Gt,
-            Symbol::TriBrOpenEqual       => Self::Le,
-            Symbol::TriBrCloseEqual      => Self::Ge,
-            Symbol::DoubleEqual          => Self::Eq,
-            Symbol::ExclamationEqual     => Self::Ne,
-            Symbol::Equal                => Self::Assign,
-
-            Symbol::Ampersand            => Self::BitAnd,
-            Symbol::Pipeline             => Self::BitOr,
-            Symbol::Circumflex           => Self::BitXor,
-            Symbol::DoubleAmpersand      => Self::And,
-            Symbol::DoublePipeline       => Self::Or,
-
-            Symbol::AmpersandEqual       => Self::BitAndAssign,
-            Symbol::PipelineEqual        => Self::BitOrAssign,
-            Symbol::CircumflexEqual      => Self::BitXorAssign,
-            Symbol::DoubleAmpersandEqual => Self::AndAssign,
-            Symbol::DoublePipelineEqual  => Self::OrAssign,
-            _ => return None,
-        };
-
-        Some(sym)
-    } // fn from_symbol
-
-    pub fn into_unary(self) -> Option<Self> {
-        Some(match self {
-            Self::Add    => Self::UnaryPlus,
-            Self::Sub    => Self::UnaryMinus,
-            Self::BitAnd => Self::Reference,
-            Self::Mul    => Self::Dereference,
-            _            => return None,
-        })
-    }
-}
+use expression::parse_expression;
 
 /// Variable mutability
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -317,7 +109,7 @@ pub enum Statement {
         ty: Box<Type>,
 
         /// Initializer expression
-        initializer: Box<Expression>,
+        initializer: Option<Box<Expression>>,
     },
 
     /// Actually, just expression
@@ -352,6 +144,10 @@ pub enum Statement {
         /// Resulting expression
         expression: Box<Expression>,
     },
+
+    Block {
+        code: Box<Block>,
+    }
 } // enum Statement
 
 /// Expression value representation structures
@@ -497,13 +293,13 @@ pub enum Declaration {
         inputs: Vec<(String, Type)>,
 
         /// return value
-        output: Type,
+        output: Box<Type>,
     },
 
     /// Variable (ded uebet)
     Variable {
         /// Type
-        ty: Type,
+        ty: Box<Type>,
 
         /// Initializer expression
         initializer: Option<Box<Expression>>,
@@ -529,255 +325,15 @@ pub struct Module {
     pub declarations: HashMap<String, Declaration>,
 } // struct Module
 
-#[derive(Debug)]
-enum RpnExpressionElement {
-    /// Operator representation structure
-    Operator(Operator),
-
-    /// Expression
-    Expression(Expression),
+pub struct VariableInfo<'t> {
+    pub name: &'t str,
+    pub mutability: Mutability,
+    pub ty: Box<Type>,
+    pub initializer: Option<Box<Expression>>,
 }
-
-/// Internal helper enum
-enum IndexingOrCall {
-    /// Is indexing
-    Indexing,
-    /// Is call
-    Call,
-}
-
-/// Indexing or function call
-fn parse_indexing_or_call<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token], (IndexingOrCall, Vec<Expression>)> {
-    let (indexing_or_call, expected_end) = match tl.get(0) {
-        Some(Token::Symbol(Symbol::RoundBrOpen)) => (IndexingOrCall::Call, Symbol::RoundBrClose),
-        Some(Token::Symbol(Symbol::SquareBrOpen)) => (IndexingOrCall::Indexing, Symbol::SquareBrClose),
-        _ => return Err(tl),
-    };
-
-    // parse set of subexpressions
-    tl = &tl[1..];
-
-    let arguments;
-
-    (tl, (arguments, _)) = comb::all((
-        // parse arguments
-        comb::repeat_with_separator(
-            parse_expression,
-            parse::symbol(Symbol::Comma),
-            Vec::new,
-            |mut vec, arg| {
-                vec.push(arg);
-                vec
-            }
-        ),
-        // parse symbol
-        parse::symbol(expected_end),
-    ))(tl)?;
-
-    Ok((tl, (indexing_or_call, arguments)))
-}
-
-fn parse_expression_rpn<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Vec<RpnExpressionElement>> {
-    // Stack of operators
-    let mut operator_stack = Vec::<Operator>::new();
-
-    // (Toklist -> Inverse) parsing result
-    let mut result = Vec::<RpnExpressionElement>::new();
-
-    #[derive(Copy, Clone, PartialEq, Eq)]
-    enum ExpectedElement {
-        Value,
-        Operator,
-    }
-    let mut expected_element: ExpectedElement = ExpectedElement::Value;
-
-    // Postfix parsing
-    'expr_loop: loop {
-        let token = match tl.get(0) {
-            Some(tok) => tok,
-            None => break 'expr_loop,
-        };
-
-        match token {
-            // Value
-            Token::Symbol(Symbol::RoundBrOpen) | Token::Ident(_) | Token::Literal(_) => {
-                if expected_element != ExpectedElement::Value {
-                    break 'expr_loop;
-                }
-
-                // parse subexpression
-                let subexpr;
-                let indexing_or_call;
-
-                (tl, (subexpr, indexing_or_call)) = comb::all((
-                    comb::any((
-                        // Subexpression enclosed in parentheses
-                        comb::map(
-                            comb::all((
-                                parse::symbol(Symbol::RoundBrOpen),
-                                parse_expression,
-                                parse::symbol(Symbol::RoundBrClose),
-                            )),
-                            |(_, subexpr, _)| subexpr,
-                        ),
-
-                        // Just ident, lol
-                        comb::map(
-                            parse::ident,
-                            |ident| Expression::Ident { ident: ident.to_string() },
-                        ),
-
-                        comb::map(
-                            parse::literal,
-                            |literal| Expression::Literal { literal }
-                        ),
-                    )),
-                    comb::any((
-                        // Indexing/Call
-                        comb::map(parse_indexing_or_call, |v| Some(v)),
-
-                        // Default case
-                        comb::map(comb::identity, |_| None),
-                    ))
-                ))(tl)?;
-
-                let expr = match indexing_or_call {
-
-                    // Subexpression was indexed
-                    Some((IndexingOrCall::Indexing, indices)) => Expression::Access {
-                        object: Box::new(subexpr),
-                        indices,
-                    },
-
-                    // Subexpression was called
-                    Some((IndexingOrCall::Call, parameters)) => Expression::Call {
-                        object: Box::new(subexpr),
-                        parameters,
-                    },
-
-                    // Subexpression last as-is
-                    None => subexpr,
-                };
-
-                // Append subexpression to result
-                result.push(RpnExpressionElement::Expression(expr));
-                expected_element = ExpectedElement::Operator;
-            }
-
-            // Operator
-            Token::Symbol(sym) => if let Some(op) = Operator::from_symbol(*sym) {
-                if expected_element == ExpectedElement::Operator {
-                    // handle binary operator
-
-                    let (priority, is_left_assoc) = match op.info() {
-                        OperatorInfo::Binary { priority, is_left_assoc } => (priority, is_left_assoc),
-                        // TODO Fix shitcode
-                        OperatorInfo::Unary => panic!("Unary operator may not occur here"),
-                    };
-
-                    'operator_parsing: while let Some(other) = operator_stack.last().cloned() {
-                        let other_info = other.info();
-
-                        match other_info {
-                            OperatorInfo::Binary { priority: other_priority, is_left_assoc: _ } => {
-                                let assoc = if is_left_assoc {
-                                    other_priority <= priority
-                                } else {
-                                    other_priority < priority
-                                };
-
-                                if assoc {
-                                    result.push(RpnExpressionElement::Operator(other));
-                                    operator_stack.pop();
-                                } else {
-                                    break 'operator_parsing;
-                                }
-                            }
-                            OperatorInfo::Unary => {
-                                result.push(RpnExpressionElement::Operator(other));
-                                operator_stack.pop();
-                            }
-                        }
-                    }
-
-                    operator_stack.push(op);
-                } else {
-                    // try to handle unary operator
-                    if let Some(new_op) = op.into_unary() {
-                        operator_stack.push(new_op);
-                    } else {
-                        break 'expr_loop;
-                    }
-                }
-
-                tl = &tl[1..];
-                expected_element = ExpectedElement::Value;
-            } else {
-                // Unexpected no-op symbol in expression, it'll be handled later...
-                break 'expr_loop;
-            }
-        }
-    } // 'expr_loop
-
-    for elem in operator_stack.into_iter().rev() {
-        result.push(RpnExpressionElement::Operator(elem));
-    }
-
-    Ok((tl, result))
-}
-
-fn collapse_rpn(elements: Vec<RpnExpressionElement>) -> Expression {
-    let mut values = Vec::new();
-
-    for elem in elements {
-        match elem {
-            RpnExpressionElement::Expression(expr) => values.push(expr),
-            RpnExpressionElement::Operator(operator) => match operator.info() {
-                OperatorInfo::Binary { .. } => {
-                    let rhs = values.pop().expect("Error during RPN collapse: incorrect tree");
-                    let lhs = values.pop().expect("Error during RPN collapse: incorrect tree");
-
-                    values.push(Expression::BinaryOperator {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs),
-                        operator
-                    })
-                }
-                OperatorInfo::Unary => {
-                    let operand = values.pop().expect("Error during RPN collapse: incorrect top element");
-
-                    values.push(Expression::UnaryOperator {
-                        operand: Box::new(operand),
-                        operator
-                    });
-                }
-            },
-        }
-    }
-
-    if values.len() != 1 {
-        panic!("Incorrect RPN");
-    }
-
-    values.swap_remove(0)
-}
-
-/// Expression parsing function
-/// * `tokens` - token set
-/// * Returns parsing result.
-fn parse_expression<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Expression> {
-    // rpn
-    let rpn;
-    (tl, rpn) = parse_expression_rpn(tl)?;
-
-    // collapsed rpn
-    let collapsed = collapse_rpn(rpn);
-
-    Ok((tl, collapsed))
-} // fn parse_expression
 
 /// Variable parsing function
-fn parse_variable<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
+fn parse_variable<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], VariableInfo<'t>> {
     comb::map(
         comb::all((
             parse::symbol(Symbol::Let),
@@ -802,9 +358,116 @@ fn parse_variable<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t 
             )),
             parse::symbol(Symbol::Semicolon),
         )),
-        |(_, name, _, ty, initializer, _)| (name, Declaration::Variable { ty, initializer })
+        |(_, name, _, ty, initializer, _)| VariableInfo {
+            name,
+            ty: Box::new(ty),
+            initializer: initializer,
+            mutability: Mutability::Mut,
+        }
     )(tl)
 } // fn parse_variable
+
+fn parse_block<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Block> {
+    comb::map(
+        comb::all((
+            parse::symbol(Symbol::CurlyBrOpen),
+            comb::repeat(
+                parse_statement,
+                Vec::new,
+                |mut vec, stmt| {
+                    vec.push(stmt);
+                    vec
+                }
+            ),
+            parse::symbol(Symbol::CurlyBrClose),
+        )),
+        |(_, statements, _)| Block {
+            statements,
+            result_expression: None,
+        }
+    )(tl)
+}
+
+fn parse_statement<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Statement> {
+    let stmt_if_else = comb::map(
+        comb::all((
+            parse::symbol(Symbol::If),
+            parse_expression,
+            parse_block,
+            comb::any((
+                comb::map(
+                    comb::all((
+                        parse::symbol(Symbol::Else),
+                        parse_block
+                    )),
+                    |(_, block)| Some(block),
+                ),
+                comb::map(comb::identity, |_| None)
+            )),
+        )),
+        |(_, condition, then_code, else_code)| Statement::If {
+            condition: Box::new(condition),
+            then_code: Box::new(then_code),
+            else_code: else_code.map(Box::new),
+        }
+    );
+
+    let stmt_while = comb::map(
+        comb::all((
+            parse::symbol(Symbol::While),
+            parse_expression,
+            parse_block,
+        )),
+        |(_, condition, code)| Statement::While {
+            condition: Box::new(condition),
+            code: Box::new(code),
+        }
+    );
+
+    let stmt_expr = comb::map(
+        comb::all((
+            parse_expression,
+            parse::symbol(Symbol::Semicolon),
+        )),
+        |(expr, _)| Statement::Expression { expr: Box::new(expr) }
+    );
+
+    let stmt_let = comb::map(
+        parse_variable,
+        |info| Statement::Let {
+            variable_name: info.name.to_string(),
+            mutability: info.mutability,
+            ty: info.ty,
+            initializer: info.initializer,
+        }
+    );
+
+    let stmt_return = comb::map(
+        comb::all((
+            parse::symbol(Symbol::Return),
+            parse_expression,
+        )),
+        |(_, expression)| Statement::Return {
+            expression: Box::new(expression)
+        }
+    );
+
+    let stmt_block = comb::map(
+        parse_block,
+        |code| Statement::Block {
+            code: Box::new(code),
+        }
+    );
+
+    comb::any((
+        stmt_if_else,
+        stmt_while,
+        stmt_return,
+        stmt_let,
+        stmt_expr,
+        stmt_block,
+    ))(tl)
+}
 
 /// Function parsing function
 fn parse_function<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
@@ -827,7 +490,7 @@ fn parse_function<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (
                 }
             ),
             parse::symbol(Symbol::RoundBrClose),
-            parse::ty,
+            comb::map(parse::ty, Box::new),
         )),
         |(_, name, _, inputs, _, output)| (name, Declaration::Function {
             inputs,
@@ -906,8 +569,14 @@ impl Module {
     /// Module from token list parsing function
     pub fn parse(tokens: &[Token]) -> Option<Module> {
         let declaration = comb::any((
-            parse_variable,
             parse_function,
+            comb::map(
+                parse_variable,
+                |info| (info.name, Declaration::Variable {
+                    ty: info.ty,
+                    initializer: info.initializer,
+                }
+            )),
             parse_structure,
             parse_enumeration,
         ));

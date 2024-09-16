@@ -27,6 +27,18 @@ pub enum Symbol {
     /// as
     As,
 
+    /// if
+    If,
+
+    /// else
+    Else,
+
+    /// while
+    While,
+
+    /// return
+    Return,
+
     /// (
     RoundBrOpen,
 
@@ -235,6 +247,10 @@ impl<'t> Iterator for TokenIterator<'t> {
                 comb::map(comb::literal("struct"), |_| Symbol::Struct),
                 comb::map(comb::literal("mut"   ), |_| Symbol::Mut   ),
                 comb::map(comb::literal("const" ), |_| Symbol::Const ),
+                comb::map(comb::literal("if"    ), |_| Symbol::If    ),
+                comb::map(comb::literal("else"  ), |_| Symbol::Else  ),
+                comb::map(comb::literal("while" ), |_| Symbol::While ),
+                comb::map(comb::literal("return"), |_| Symbol::Return),
             )),
             comb::any((
                 comb::map(comb::literal("<<="), |_| Symbol::ShlEqual),
