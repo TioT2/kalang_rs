@@ -85,8 +85,8 @@ impl std::fmt::Display for Declaration {
             Self::Enumeration { variants } => {
                 f.write_fmt(format_args!("enum {{\n"))?;
                 for variant in variants {
-                    f.write_fmt(format_args!("    {}", variant.name))?;
-                    if let Some(index) = variant.explicit_index {
+                    f.write_fmt(format_args!("    {}", variant.0))?;
+                    if let Some(index) = &variant.1 {
                         f.write_fmt(format_args!(" = {}", index))?;
                     }
                     f.write_str(",\n")?;
@@ -97,9 +97,9 @@ impl std::fmt::Display for Declaration {
                 f.write_fmt(format_args!("fn ("))?;
 
                 if let Some((first, rest)) = inputs.split_first() {
-                    f.write_fmt(format_args!("{}: {}", first.0, first.1))?;
+                    f.write_fmt(format_args!("{} {}: {}", first.1, first.0, first.2))?;
                     for input in rest {
-                        f.write_fmt(format_args!(", {}: {}", input.0, input.1))?;
+                        f.write_fmt(format_args!(", {} {}: {}", input.1, input.0, input.2))?;
                     }
                 }
 
@@ -164,7 +164,7 @@ impl std::fmt::Display for Expression {
                 f.write_str(" }")
             }
             Self::UnaryOperator { operand, operator } => {
-                f.write_fmt(format_args!("({} {:?})", operand, operator))
+                f.write_fmt(format_args!("{} {}", operand, operator))
             }
         }
     }
@@ -212,5 +212,48 @@ impl std::fmt::Display for BinaryOperator {
             Self::BitXorAssign => "^=",
             Self::Assign       => "=",
         })
+    }
+}
+
+impl std::fmt::Display for UnaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("u")?;
+        match self {
+            Self::Call(args) => {
+                f.write_str("(")?;
+                if let Some((head, tail)) = args.split_first() {
+                    head.fmt(f)?;
+                    for arg in tail {
+                        f.write_fmt(format_args!(", {arg}"))?;
+                    }
+                }
+                f.write_str(")")
+            }
+            Self::Cast(ty) => {
+                f.write_fmt(format_args!("as({ty})"))
+            }
+            Self::Dereference => {
+                f.write_str("*")
+            }
+            Self::Index(indices) => {
+                f.write_str("[")?;
+                if let Some((head, tail)) = indices.split_first() {
+                    head.fmt(f)?;
+                    for arg in tail {
+                        f.write_fmt(format_args!(", {arg}"))?;
+                    }
+                }
+                f.write_str("]")
+            }
+            Self::Reference(mutability) => {
+                f.write_fmt(format_args!("ref({mutability})"))
+            }
+            Self::UnaryMinus => {
+                f.write_str("-")
+            }
+            Self::UnaryPlus => {
+                f.write_str("+")
+            }
+        }
     }
 }

@@ -160,7 +160,7 @@ pub fn repeat_with_separator<'t, D: 't + Clone, T, O>(
             };
 
             let Ok((next_str, value)) = value(separator_str.clone()) else {
-                return Err(separator_str);
+                return Ok((separator_str, result));
             };
 
             result = fold_fn(result, value);

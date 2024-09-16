@@ -1,22 +1,26 @@
-    use comb::PResult;
+use comb::PResult;
+use crate::lexer::{Symbol, Token};
+use super::{parse, UnaryOperator, BinaryOperator, Expression, Mutability, Type};
 
-use crate::{ast::UnaryOperator, lexer::{Symbol, Token}};
-
-use super::{parse, BinaryOperator, Expression, Mutability, Type};
-
+/// AST building helper
 struct ExpressionAstBuilder {
+    /// Output stack
     values: Vec<Expression>,
+
+    /// Operators
     operators: Vec<BinaryOperator>,
-}
+} // struct ExpressionAstBuilder
 
 impl ExpressionAstBuilder {
+    /// Constructor
     pub fn new() -> Self {
         Self {
             operators: Vec::new(),
             values: Vec::new()
         }
-    }
+    } // fn new
 
+    /// Binary operator pushing function
     pub fn push_binary_operator(&mut self, op: BinaryOperator) -> Option<()> {
         let info = op.info();
 
@@ -45,12 +49,14 @@ impl ExpressionAstBuilder {
         self.operators.push(op);
 
         Some(())
-    }
+    } // fn push_binary_operator
 
+    /// Expression (actually, value) pushing function
     pub fn push_expression(&mut self, value: Expression) {
         self.values.push(value);
-    }
+    } // fn push_expression
 
+    /// Final expression getting function
     pub fn build(self) -> Option<Expression> {
         let mut values = self.values;
 
@@ -70,8 +76,8 @@ impl ExpressionAstBuilder {
         } else {
             None
         }
-    }
-}
+    } // fn build
+} // impl ExpressionAstBuilder
 
 /// Internal helper enum
 enum IndexingOrCall {
@@ -79,36 +85,9 @@ enum IndexingOrCall {
     Indexing,
     /// Is call
     Call,
-}
+} // enum IndexingOrCall
 
-/// Prefix unary operator parsing function
-pub enum PrefixUnaryOperator {
-    /// Negation operator
-    Minus,
-
-    /// Unary addition operator
-    Plus,
-
-    /// Referencing operator
-    Reference(Mutability),
-
-    /// Pointer dereference operator
-    Dereference,
-}
-
-/// Postfix operator representation structure
-pub enum PostfixUnaryOperator {
-    /// Indexing arguments
-    Index(Vec<Expression>),
-
-    /// Call arguments
-    Call(Vec<Expression>),
-
-    /// Casting to type operator
-    Cast(Box<Type>),
-}
-
-/// Indexing or function call
+/// Indexing or function call postfix operator parsing function
 fn parse_indexing_or_call<'t>(
     mut tl: &'t [Token<'t>]
 ) -> PResult<'t, &'t [Token], (IndexingOrCall, Vec<Expression>)> {
@@ -118,7 +97,6 @@ fn parse_indexing_or_call<'t>(
         _ => return Err(tl),
     };
 
-    // parse set of subexpressions
     tl = &tl[1..];
 
     let arguments;
@@ -139,8 +117,36 @@ fn parse_indexing_or_call<'t>(
     ))(tl)?;
 
     Ok((tl, (indexing_or_call, arguments)))
-}
+} // fn parse_indexing_or_call
 
+/// Prefix unary operator parsing function
+pub enum PrefixUnaryOperator {
+    /// Negation operator
+    Minus,
+
+    /// Unary addition operator
+    Plus,
+
+    /// Referencing operator
+    Reference(Mutability),
+
+    /// Pointer dereference operator
+    Dereference,
+} // enum PrefixUnaryOperator
+
+/// Postfix unary operator representation structure
+pub enum PostfixUnaryOperator {
+    /// Indexing arguments
+    Index(Vec<Expression>),
+
+    /// Call arguments
+    Call(Vec<Expression>),
+
+    /// Casting to type operator
+    Cast(Box<Type>),
+} // enum PostfixUnaryOperator
+
+/// Prefix operator parsing function
 fn parse_prefix_operator<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], PrefixUnaryOperator> {
     comb::any((
         // dereference
@@ -176,7 +182,7 @@ fn parse_prefix_operator<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>]
             |(_, mutability)| PrefixUnaryOperator::Reference(mutability)
         )
     ))(tl)
-}
+} // fn parse_prefix_operator
 
 /// Postfix operator parsing function
 fn parse_postfix_operator<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], PostfixUnaryOperator> {
@@ -198,8 +204,9 @@ fn parse_postfix_operator<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>
             |(_, ty)| PostfixUnaryOperator::Cast(Box::new(ty)),
         )
     ))(tl)
-}
+} // fn parse_postfix_operator
 
+/// Expression value parsing function
 fn parse_expression_value<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Expression> {
     comb::any((
         // Subexpression enclosed in parentheses
@@ -268,8 +275,9 @@ fn parse_expression_value<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>
             |ident| Expression::Ident { ident: ident.to_string() },
         ),
     ))(tl)
-}
+} // fn parse_expression_value
 
+/// Expression parser
 pub fn parse_expression<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Expression> {
     // (Toklist -> Inverse) parsing result
     let mut builder = ExpressionAstBuilder::new();
@@ -302,8 +310,15 @@ pub fn parse_expression<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'
                 let postfix_operators: Vec<_>;
                 (tl, postfix_operators) = comb::collect_repeat(parse_postfix_operator)(tl)?;
 
-                // apply unary operators
+                // chain prefix and postifx operators
                 let ops = Iterator::chain(
+                    postfix_operators
+                        .into_iter()
+                        .map(|op| match op {
+                            PostfixUnaryOperator::Call(parameters) => UnaryOperator::Call(parameters),
+                            PostfixUnaryOperator::Index(indices) => UnaryOperator::Index(indices),
+                            PostfixUnaryOperator::Cast(ty) => UnaryOperator::Cast(ty),
+                        }),
                     prefix_operators
                         .into_iter()
                         .rev()
@@ -313,15 +328,9 @@ pub fn parse_expression<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'
                             PrefixUnaryOperator::Plus => UnaryOperator::UnaryPlus,
                             PrefixUnaryOperator::Reference(mutability) => UnaryOperator::Reference(mutability),
                         }),
-                    postfix_operators
-                        .into_iter()
-                        .map(|op| match op {
-                            PostfixUnaryOperator::Call(parameters) => UnaryOperator::Call(parameters),
-                            PostfixUnaryOperator::Index(indices) => UnaryOperator::Index(indices),
-                            PostfixUnaryOperator::Cast(ty) => UnaryOperator::Cast(ty),
-                        })
                 );
 
+                // apply'em
                 for op in ops {
                     value = Expression::UnaryOperator {
                         operand: Box::new(value),
@@ -329,6 +338,7 @@ pub fn parse_expression<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'
                     };
                 }
 
+                // Add expression to builder
                 builder.push_expression(value);
                 expected_element = ExpectedElement::Operator;
             }
@@ -350,7 +360,12 @@ pub fn parse_expression<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'
         }
     } // 'expr_loop
 
-    let expression_ast = builder.build().expect("Error finalizing expression AST");
+    Ok((
+        tl,
+        builder
+            .build()
+            .expect("Error finalizing expression AST")
+    ))
+} // fn parse_expression
 
-    Ok((tl, expression_ast))
-}
+// file expression.rs

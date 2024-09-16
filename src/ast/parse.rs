@@ -33,15 +33,6 @@ pub fn ident<'t>(tl: &'t [Token]) -> PResult<'t, &'t [Token<'t>], &'t str> {
     }
 } // fn literal
 
-/// Integer literal parsing function
-pub fn integer_literal<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], u64> {
-    if let Some(Token::Literal(Literal::Integer(int))) = tl.get(0) {
-        Ok((&tl[1..], *int))
-    } else {
-        Err(tl)
-    }
-} // fn integer_literal
-
 pub fn mutability<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Mutability> {
     comb::or(
         comb::any((
