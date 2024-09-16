@@ -2,6 +2,8 @@ mod all;
 mod any;
 mod str;
 
+use std::marker::PhantomData;
+
 pub use all::*;
 pub use any::*;
 pub use str::*;
@@ -71,6 +73,18 @@ pub fn filter_map<'t, D: 't + Clone, I, O>(
     }
 } // fn filter_map
 
+pub fn or<'t, D: 't + Clone, T>(
+    parser: impl Parser<'t, D, T>,
+    or_fn: impl Fn() -> T,
+) -> impl Parser<'t, D, T> {
+    move |tl: D| -> PResult<'t, D, T> {
+        match parser(tl.clone()) {
+            Ok(v) => Ok(v),
+            Err(_) => Ok((tl, or_fn())),
+        }
+    }
+}
+
 pub fn repeat<'t, D: 't + Clone, T, O>(
     parser: impl Parser<'t, D, T>,
     initializer: impl Fn() -> O,
@@ -87,6 +101,39 @@ pub fn repeat<'t, D: 't + Clone, T, O>(
             str = new_str;
             result = fold_fn(result, value);
         }
+    }
+}
+
+pub fn collect_repeat<'t, O: FromIterator<T>, T, D: 't + Clone>(
+    parser: impl Parser<'t, D, T>
+) -> impl Parser<'t, D, O> {
+    struct CrIterator<'b, 't, D: 'b + 't + Clone, T, P: Parser<'t, D, T>> {
+        str: &'b mut D,
+        parse_fn: &'b P,
+        _phd: std::marker::PhantomData<T>,
+        _td: std::marker::PhantomData<&'t ()>,
+    }
+
+    impl<'b, 't, D: 'b + 't + Clone, T, P: Parser<'t, D, T>> Iterator for CrIterator<'b, 't, D, T, P> {
+
+        type Item = T;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let t;
+            (*self.str, t) = (*self.parse_fn)(self.str.clone()).ok()?;
+            Some(t)
+        }
+    }
+
+    move |mut str: D| -> PResult<'t, D, O> {
+        let res = O::from_iter(CrIterator {
+            _phd: PhantomData::default(),
+            _td: PhantomData::default(),
+            parse_fn: &parser,
+            str: &mut str,
+        });
+
+        Ok((str, res))
     }
 }
 

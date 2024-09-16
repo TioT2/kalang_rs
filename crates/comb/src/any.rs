@@ -68,3 +68,12 @@ pub fn any<'t, D: 't, T>(any: impl AnyHelper<'t, D, T>) -> impl Parser<'t, D, T>
         any.parse(str)
     }
 }
+
+pub fn any_or<'t, D: 't + Clone, T>(any: impl AnyHelper<'t, D, T>, or: impl Fn() -> T) -> impl Parser<'t, D, T> {
+    move |tl: D| -> PResult<'t, D, T> {
+        Ok(match any.parse(tl.clone()) {
+            Ok(v) => v,
+            Err(_) => (tl, or()),
+        })
+    }
+}

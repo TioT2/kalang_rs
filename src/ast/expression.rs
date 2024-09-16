@@ -1,12 +1,12 @@
-use comb::PResult;
+    use comb::PResult;
 
-use crate::lexer::{Symbol, Token};
+use crate::{ast::UnaryOperator, lexer::{Symbol, Token}};
 
-use super::{parse, Expression, Operator, OperatorInfo};
+use super::{parse, BinaryOperator, Expression, Mutability, Type};
 
 struct ExpressionAstBuilder {
     values: Vec<Expression>,
-    operators: Vec<Operator>,
+    operators: Vec<BinaryOperator>,
 }
 
 impl ExpressionAstBuilder {
@@ -17,46 +17,28 @@ impl ExpressionAstBuilder {
         }
     }
 
-    pub fn push_operator(&mut self, op: Operator) -> Option<()> {
-        let (priority, is_left_assoc) = match op.info() {
-            OperatorInfo::Binary { priority, is_left_assoc } => (priority, is_left_assoc),
-            OperatorInfo::Unary => {
-                self.operators.push(op);
-                return Some(());
-            },
-        };
+    pub fn push_binary_operator(&mut self, op: BinaryOperator) -> Option<()> {
+        let info = op.info();
 
         'operator_parsing: while let Some(other) = self.operators.last().cloned() {
             let other_info = other.info();
 
-            match other_info {
-                OperatorInfo::Binary { priority: other_priority, is_left_assoc: _ } => {
-                    let assoc = if is_left_assoc {
-                        other_priority <= priority
-                    } else {
-                        other_priority < priority
-                    };
+            let assoc = if info.is_left_assoc {
+                other_info.priority <= info.priority
+            } else {
+                other_info.priority < info.priority
+            };
 
-                    if assoc {
-                        let expr = Expression::BinaryOperator {
-                            rhs: Box::new(self.values.pop()?),
-                            lhs: Box::new(self.values.pop()?),
-                            operator: other,
-                        };
-                        self.values.push(expr);
-                        self.operators.pop();
-                    } else {
-                        break 'operator_parsing;
-                    }
-                }
-                OperatorInfo::Unary => {
-                    let expr = Expression::UnaryOperator {
-                        operand: Box::new(self.values.pop()?),
-                        operator: other,
-                    };
-                    self.values.push(expr);
-                    self.operators.pop();
-                }
+            if assoc {
+                let expr = Expression::BinaryOperator {
+                    rhs: Box::new(self.values.pop()?),
+                    lhs: Box::new(self.values.pop()?),
+                    operator: other,
+                };
+                self.values.push(expr);
+                self.operators.pop();
+            } else {
+                break 'operator_parsing;
             }
         }
 
@@ -65,35 +47,22 @@ impl ExpressionAstBuilder {
         Some(())
     }
 
-    pub fn push_expression(&mut self, val: Expression) {
-        self.values.push(val);
+    pub fn push_expression(&mut self, value: Expression) {
+        self.values.push(value);
     }
 
     pub fn build(self) -> Option<Expression> {
         let mut values = self.values;
 
         for op in self.operators.into_iter().rev() {
-            let info = op.info();
+            let rhs = values.pop()?;
+            let lhs = values.pop()?;
 
-            match info {
-                OperatorInfo::Binary { .. } => {
-                    let rhs = values.pop()?;
-                    let lhs = values.pop()?;
-
-                    values.push(Expression::BinaryOperator {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs),
-                        operator: op
-                    })
-                }
-                OperatorInfo::Unary => {
-                    let operand = values.pop()?;
-                    values.push(Expression::UnaryOperator {
-                        operand: Box::new(operand),
-                        operator: op
-                    })
-                }
-            }
+            values.push(Expression::BinaryOperator {
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+                operator: op
+            })
         }
 
         if values.len() == 1 {
@@ -112,8 +81,37 @@ enum IndexingOrCall {
     Call,
 }
 
+/// Prefix unary operator parsing function
+pub enum PrefixUnaryOperator {
+    /// Negation operator
+    Minus,
+
+    /// Unary addition operator
+    Plus,
+
+    /// Referencing operator
+    Reference(Mutability),
+
+    /// Pointer dereference operator
+    Dereference,
+}
+
+/// Postfix operator representation structure
+pub enum PostfixUnaryOperator {
+    /// Indexing arguments
+    Index(Vec<Expression>),
+
+    /// Call arguments
+    Call(Vec<Expression>),
+
+    /// Casting to type operator
+    Cast(Box<Type>),
+}
+
 /// Indexing or function call
-fn parse_indexing_or_call<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token], (IndexingOrCall, Vec<Expression>)> {
+fn parse_indexing_or_call<'t>(
+    mut tl: &'t [Token<'t>]
+) -> PResult<'t, &'t [Token], (IndexingOrCall, Vec<Expression>)> {
     let (indexing_or_call, expected_end) = match tl.get(0) {
         Some(Token::Symbol(Symbol::RoundBrOpen)) => (IndexingOrCall::Call, Symbol::RoundBrClose),
         Some(Token::Symbol(Symbol::SquareBrOpen)) => (IndexingOrCall::Indexing, Symbol::SquareBrClose),
@@ -143,6 +141,135 @@ fn parse_indexing_or_call<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token
     Ok((tl, (indexing_or_call, arguments)))
 }
 
+fn parse_prefix_operator<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], PrefixUnaryOperator> {
+    comb::any((
+        // dereference
+        comb::map(
+            parse::symbol(Symbol::Asterisk),
+            |_| PrefixUnaryOperator::Dereference,
+        ),
+
+        // unary +
+        comb::map(
+            parse::symbol(Symbol::Plus),
+            |_| PrefixUnaryOperator::Plus,
+        ),
+
+        // unary -
+        comb::map(
+            parse::symbol(Symbol::Minus),
+            |_| PrefixUnaryOperator::Minus,
+        ),
+
+        // reference
+        comb::map(
+            comb::all((
+                parse::symbol(Symbol::Ampersand),
+                comb::or(
+                    comb::any((
+                        comb::map(parse::symbol(Symbol::Mut), |_| Mutability::Mut),
+                        comb::map(parse::symbol(Symbol::Const), |_| Mutability::Const),
+                    )),
+                    || Mutability::Const
+                ),
+            )),
+            |(_, mutability)| PrefixUnaryOperator::Reference(mutability)
+        )
+    ))(tl)
+}
+
+/// Postfix operator parsing function
+fn parse_postfix_operator<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], PostfixUnaryOperator> {
+    comb::any((
+        comb::map(
+            parse_indexing_or_call,
+            |(ioc, args)| {
+                match ioc {
+                    IndexingOrCall::Call => PostfixUnaryOperator::Index(args),
+                    IndexingOrCall::Indexing => PostfixUnaryOperator::Call(args),
+                }
+            }
+        ),
+        comb::map(
+            comb::all((
+                parse::symbol(Symbol::As),
+                parse::ty,
+            )),
+            |(_, ty)| PostfixUnaryOperator::Cast(Box::new(ty)),
+        )
+    ))(tl)
+}
+
+fn parse_expression_value<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Expression> {
+    comb::any((
+        // Subexpression enclosed in parentheses
+        comb::map(
+            comb::all((
+                parse::symbol(Symbol::RoundBrOpen),
+                parse_expression,
+                parse::symbol(Symbol::RoundBrClose),
+            )),
+            |(_, subexpr, _)| subexpr,
+        ),
+
+        // Literal
+        comb::map(
+            parse::literal,
+            |literal| Expression::Literal { literal }
+        ),
+
+        // Array
+        comb::map(
+            comb::all((
+                parse::symbol(Symbol::SquareBrOpen),
+                comb::repeat_with_separator(
+                    parse_expression,
+                    parse::symbol(Symbol::Comma),
+                    Vec::new,
+                    |mut vec, expr| {
+                        vec.push(expr);
+                        vec
+                    },
+                ),
+                parse::symbol(Symbol::SquareBrClose),
+            )),
+            |(_, initializer, _)| Expression::Array { initializer }
+        ),
+
+        // Structure
+        comb::map(
+            comb::all((
+                parse::ident,
+                parse::symbol(Symbol::CurlyBrOpen),
+                comb::repeat_with_separator(
+                    comb::all((
+                        parse::ident,
+                        parse::symbol(Symbol::Colon),
+                        parse_expression,
+                    )),
+                    parse::symbol(Symbol::Comma),
+                    Vec::new,
+                    |mut vec, (name, _, initializer)| {
+                        vec.push((name.to_string(), initializer));
+                        vec
+                    },
+                ),
+                parse::symbol(Symbol::CurlyBrClose),
+            )),
+            |(name, _, fields, _)| Expression::Structure {
+                name: name.to_string(),
+                fields
+            }
+        ),
+
+        // Just ident, lol
+        comb::map(
+            parse::ident,
+            |ident| Expression::Ident { ident: ident.to_string() },
+        ),
+    ))(tl)
+}
+
 pub fn parse_expression<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Expression> {
     // (Toklist -> Inverse) parsing result
     let mut builder = ExpressionAstBuilder::new();
@@ -161,90 +288,64 @@ pub fn parse_expression<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'
             None => break 'expr_loop,
         };
 
-        match token {
-            // Value
-            Token::Symbol(Symbol::RoundBrOpen) | Token::Ident(_) | Token::Literal(_) => {
-                if expected_element != ExpectedElement::Value {
-                    break 'expr_loop;
+        match expected_element {
+            ExpectedElement::Value => {
+                // TODO FIX THIS PERFORMANCE ZALUPA!!!
+                let prefix_operators: Vec<_>;
+                (tl, prefix_operators) = comb::collect_repeat(parse_prefix_operator)(tl)?;
+
+                // parse actual value
+                let mut value;
+                (tl, value) = parse_expression_value(tl)?;
+
+                // parse postifx operators
+                let postfix_operators: Vec<_>;
+                (tl, postfix_operators) = comb::collect_repeat(parse_postfix_operator)(tl)?;
+
+                // apply unary operators
+                let ops = Iterator::chain(
+                    prefix_operators
+                        .into_iter()
+                        .rev()
+                        .map(|op| match op {
+                            PrefixUnaryOperator::Dereference => UnaryOperator::Dereference,
+                            PrefixUnaryOperator::Minus => UnaryOperator::UnaryMinus,
+                            PrefixUnaryOperator::Plus => UnaryOperator::UnaryPlus,
+                            PrefixUnaryOperator::Reference(mutability) => UnaryOperator::Reference(mutability),
+                        }),
+                    postfix_operators
+                        .into_iter()
+                        .map(|op| match op {
+                            PostfixUnaryOperator::Call(parameters) => UnaryOperator::Call(parameters),
+                            PostfixUnaryOperator::Index(indices) => UnaryOperator::Index(indices),
+                            PostfixUnaryOperator::Cast(ty) => UnaryOperator::Cast(ty),
+                        })
+                );
+
+                for op in ops {
+                    value = Expression::UnaryOperator {
+                        operand: Box::new(value),
+                        operator: Box::new(op),
+                    };
                 }
 
-                // parse subexpression
-                let subexpr;
-                let indexing_or_call;
-
-                (tl, (subexpr, indexing_or_call)) = comb::all((
-                    comb::any((
-                        // Subexpression enclosed in parentheses
-                        comb::map(
-                            comb::all((
-                                parse::symbol(Symbol::RoundBrOpen),
-                                parse_expression,
-                                parse::symbol(Symbol::RoundBrClose),
-                            )),
-                            |(_, subexpr, _)| subexpr,
-                        ),
-
-                        // Just ident, lol
-                        comb::map(
-                            parse::ident,
-                            |ident| Expression::Ident { ident: ident.to_string() },
-                        ),
-
-                        comb::map(
-                            parse::literal,
-                            |literal| Expression::Literal { literal }
-                        ),
-                    )),
-                    comb::any((
-                        // Indexing/Call
-                        comb::map(parse_indexing_or_call, |v| Some(v)),
-
-                        // Default case
-                        comb::map(comb::identity, |_| None),
-                    ))
-                ))(tl)?;
-
-                let expr = match indexing_or_call {
-
-                    // Subexpression was indexed
-                    Some((IndexingOrCall::Indexing, indices)) => Expression::Access {
-                        object: Box::new(subexpr),
-                        indices,
-                    },
-
-                    // Subexpression was called
-                    Some((IndexingOrCall::Call, parameters)) => Expression::Call {
-                        object: Box::new(subexpr),
-                        parameters,
-                    },
-
-                    // Subexpression last as-is
-                    None => subexpr,
-                };
-
-                // Append subexpression to result
-                builder.push_expression(expr);
+                builder.push_expression(value);
                 expected_element = ExpectedElement::Operator;
             }
 
-            // Operator
-            Token::Symbol(sym) => if let Some(mut op) = Operator::from_symbol(*sym) {
-                if expected_element != ExpectedElement::Operator {
-                    if let Some(new_op) = op.into_unary() {
-                        op = new_op;
-                    } else {
-                        break 'expr_loop;
-                    }
-                }
-                
-                builder
-                    .push_operator(op)
-                    .expect("Error during AST operator push");
+            ExpectedElement::Operator => {
+                let sym = match token {
+                    Token::Symbol(symbol) => *symbol,
+                    _ => break 'expr_loop,
+                };
+                let op = match BinaryOperator::from_symbol(sym) {
+                    Some(v) => v,
+                    None => break 'expr_loop,
+                };
+
                 tl = &tl[1..];
+                builder.push_binary_operator(op);
                 expected_element = ExpectedElement::Value;
-            } else {
-                // Unexpected no-op symbol in expression, it'll be handled later...
-                break 'expr_loop;
             }
         }
     } // 'expr_loop

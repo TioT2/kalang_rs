@@ -1,6 +1,6 @@
 use comb::{PResult, Parser};
 use crate::lexer::{Literal, Symbol, Token};
-use super::{PrimitiveType, Type};
+use super::{Mutability, PrimitiveType, Type};
 
 /// Some symbol parser getting function
 pub fn symbol<'t>(match_sm: Symbol) -> impl Parser<'t, &'t [Token<'t>], ()> {
@@ -41,6 +41,16 @@ pub fn integer_literal<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], 
         Err(tl)
     }
 } // fn integer_literal
+
+pub fn mutability<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Mutability> {
+    comb::or(
+        comb::any((
+            comb::map(symbol(Symbol::Mut), |_| Mutability::Mut),
+            comb::map(symbol(Symbol::Const), |_| Mutability::Const),
+        )),
+        || Mutability::Const,
+    )(tl)
+}
 
 /// Type parsing function
 pub fn ty<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Type> {
@@ -112,14 +122,10 @@ pub fn ty<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Type> {
         Token::Symbol(Symbol::Asterisk) => {
             comb::map(
                 comb::all((
-                    comb::any((
-                        comb::map(symbol(Symbol::Mut  ), |_| true ),
-                        comb::map(symbol(Symbol::Const), |_| false),
-                        comb::map(comb::identity,        |_| false),
-                    )),
+                    mutability,
                     comb::map(ty, Box::new),
                 )),
-                |(is_mutable, element_type)| Type::Pointer { element_type, is_mutable }
+                |(mutability, element_type)| Type::Pointer { element_type, mutability }
             )(&tl[1..])
         }
         Token::Ident(ident) => {

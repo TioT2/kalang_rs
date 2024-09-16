@@ -20,6 +20,7 @@
                 }
             },
             "args": [],
+            "console": "externalTerminal",
             "cwd": "${workspaceFolder}"
         },
         {
@@ -39,6 +40,7 @@
                 }
             },
             "args": [],
+            "console": "externalTerminal",
             "cwd": "${workspaceFolder}"
         }
     ]

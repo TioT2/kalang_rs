@@ -4,7 +4,7 @@ pub mod lexer;
 
 fn main() {
     // Source
-    let source = include_str!("../examples/declarations.klh");
+    let source = include_str!("../examples/main.kl");
 
     // Tokenize file
     let tokens = lexer::TokenIterator::new(source).collect::<Vec<_>>();
@@ -12,7 +12,7 @@ fn main() {
     // File -> AST
     let ast = ast::Module::parse(&tokens).expect("Error parsing file");
 
-    println!("{:?}", ast.declarations.get("a").expect("Required \"a\" variable declaration"));
+    println!("{}", ast);
 
     // Display AST
     // println!("{:?}", ast);

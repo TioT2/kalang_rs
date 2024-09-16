@@ -2,8 +2,10 @@
 mod parse;
 mod expression;
 mod operator;
+mod display;
 
 pub use operator::*;
+pub use display::*;
 
 use std::collections::HashMap;
 use comb::PResult;
@@ -16,12 +18,34 @@ pub enum Mutability {
     /// Constant (can be calculated in compiletime)
     Const,
 
-    /// Immutable (may not be changed, calculated during initialization)
-    Immut,
-
     /// Mutable (may be changed)
     Mut,
 } // enum Mutability
+
+/// Prefix/Postifx unary operator representation enumeration
+#[derive(Clone, Debug)]
+pub enum UnaryOperator {
+    /// Casting operator
+    Cast(Box<Type>),
+
+    /// Indexing operator
+    Index(Vec<Expression>),
+
+    /// Call operator
+    Call(Vec<Expression>),
+
+    /// Referencing operator
+    Reference(Mutability),
+
+    /// Dereferencing operator
+    Dereference,
+
+    /// Unary + operator
+    UnaryPlus,
+
+    /// Unary minus operator
+    UnaryMinus,
+} // enum UnaryOperator
 
 /// Expression representation structure
 #[derive(Clone, Debug)]
@@ -38,28 +62,27 @@ pub enum Expression {
         literal: Literal,
     },
 
-    /// Code block
-    Block {
-        /// Block code
-        code: Box<Block>,
+    /// Array of some kind of values
+    Array {
+        /// Array initializer
+        initializer: Vec<Expression>,
     },
 
-    /// Function call
-    Call {
-        /// Called object
-        object: Box<Expression>,
+    /// Structure initializer
+    Structure {
+        /// Structure name
+        name: String,
 
-        /// Call parameters
-        parameters: Vec<Expression>,
+        /// Fields
+        fields: Vec<(String, Expression)>,
     },
 
-    /// Stack access
-    Access {
-        /// Accessed object (array/tuple, initially)
-        object: Box<Expression>,
-
-        /// Access indices
-        indices: Vec<Expression>,
+    /// Unary operator
+    UnaryOperator {
+        /// Operand
+        operand: Box<Expression>,
+        /// Operator (yes, it's too large to use it without box)
+        operator: Box<UnaryOperator>,
     },
 
     /// Binary operator
@@ -71,16 +94,7 @@ pub enum Expression {
         rhs: Box<Expression>,
 
         /// Operator, actually
-        operator: Operator,
-    },
-
-    /// Unary operator
-    UnaryOperator {
-        /// Operand
-        operand: Box<Expression>,
-
-        /// Operator
-        operator: Operator,
+        operator: BinaryOperator,
     },
 } // enum Expression
 
@@ -147,21 +161,8 @@ pub enum Statement {
 
     Block {
         code: Box<Block>,
-    }
+    },
 } // enum Statement
-
-/// Expression value representation structures
-#[derive(Debug)]
-pub enum Value {
-    /// Integer literal
-    Integer(u64),
-
-    /// FP literal
-    Floating(f64),
-
-    /// Strnig (reference to nametable element)
-    Variable(String),
-} // enum Value
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum PrimitiveType {
@@ -255,7 +256,7 @@ pub enum Type {
         element_type: Box<Type>,
 
         /// Element mutability
-        is_mutable: bool,
+        mutability: Mutability,
     },
 
     /// Tuple
@@ -284,6 +285,11 @@ pub struct EnumVariant {
     pub explicit_index: Option<usize>,
 } // struct EnumVariant
 
+pub struct FunctionSignature {
+    pub inputs: Vec<(String, Type)>,
+    pub output: Box<Type>,
+}
+
 /// Declaration representation enumeration
 #[derive(Debug)]
 pub enum Declaration {
@@ -294,12 +300,17 @@ pub enum Declaration {
 
         /// return value
         output: Box<Type>,
+
+        implementation: Option<Box<Block>>,
     },
 
     /// Variable (ded uebet)
     Variable {
         /// Type
         ty: Box<Type>,
+
+        /// Mutability
+        mutability: Mutability,
 
         /// Initializer expression
         initializer: Option<Box<Expression>>,
@@ -337,6 +348,13 @@ fn parse_variable<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Varia
     comb::map(
         comb::all((
             parse::symbol(Symbol::Let),
+            comb::or(
+                comb::any((
+                    comb::map(parse::symbol(Symbol::Mut), |_| Mutability::Mut),
+                    comb::map(parse::symbol(Symbol::Const), |_| Mutability::Const),
+                )),
+                || Mutability::Const,
+            ),
             parse::ident,
             parse::symbol(Symbol::Colon),
             parse::ty,
@@ -358,11 +376,11 @@ fn parse_variable<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Varia
             )),
             parse::symbol(Symbol::Semicolon),
         )),
-        |(_, name, _, ty, initializer, _)| VariableInfo {
+        |(_, mutability, name, _, ty, initializer, _)| VariableInfo {
             name,
             ty: Box::new(ty),
             initializer: initializer,
-            mutability: Mutability::Mut,
+            mutability,
         }
     )(tl)
 } // fn parse_variable
@@ -446,8 +464,9 @@ fn parse_statement<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Stat
         comb::all((
             parse::symbol(Symbol::Return),
             parse_expression,
+            parse::symbol(Symbol::Semicolon),
         )),
-        |(_, expression)| Statement::Return {
+        |(_, expression, _)| Statement::Return {
             expression: Box::new(expression)
         }
     );
@@ -467,7 +486,7 @@ fn parse_statement<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Stat
         stmt_expr,
         stmt_block,
     ))(tl)
-}
+} // fn parse_statement
 
 /// Function parsing function
 fn parse_function<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
@@ -490,11 +509,25 @@ fn parse_function<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (
                 }
             ),
             parse::symbol(Symbol::RoundBrClose),
-            comb::map(parse::ty, Box::new),
+            comb::map(
+                comb::or(parse::ty, || Type::Primitive(PrimitiveType::Void)),
+                Box::new
+            ),
+            comb::any((
+                comb::map(
+                    parse::symbol(Symbol::Semicolon),
+                    |_| None,
+                ),
+                comb::map(
+                    parse_block,
+                    |code| Some(Box::new(code)),
+                ),
+            )),
         )),
-        |(_, name, _, inputs, _, output)| (name, Declaration::Function {
+        |(_, name, _, inputs, _, output, implementation)| (name, Declaration::Function {
             inputs,
             output,
+            implementation,
         })
     )(tokens)
 } // fn parse_function
@@ -574,6 +607,7 @@ impl Module {
                 parse_variable,
                 |info| (info.name, Declaration::Variable {
                     ty: info.ty,
+                    mutability: info.mutability,
                     initializer: info.initializer,
                 }
             )),
@@ -581,13 +615,11 @@ impl Module {
             parse_enumeration,
         ));
 
-        let declarations = comb::repeat(
-            declaration,
-            HashMap::<String, Declaration>::new,
-            |mut hmap, (name, declaration)| {
-                hmap.insert(name.to_string(), declaration);
-                hmap
-            }
+        let declarations = comb::collect_repeat::<HashMap<_, _>, _, _>(
+            comb::map(
+                declaration,
+                |(n, d)| (n.to_string(), d)
+            )
         );
 
         Some(Module {
