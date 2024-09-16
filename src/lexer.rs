@@ -103,7 +103,7 @@ pub enum Symbol {
     Equal,
 
     /// ==
-    EqualEqual,
+    DoubleEqual,
 
     /// !
     Exclamation,
@@ -116,6 +116,36 @@ pub enum Symbol {
 
     /// >=
     TriBrCloseEqual,
+
+    /// &
+    Ampersand,
+
+    /// |
+    Pipeline,
+
+    /// ^
+    Circumflex,
+
+    /// &&
+    DoubleAmpersand,
+
+    /// ||
+    DoublePipeline,
+
+    /// &=
+    AmpersandEqual,
+
+    /// |=
+    PipelineEqual,
+
+    /// ^=
+    CircumflexEqual,
+
+    /// &&=
+    DoubleAmpersandEqual,
+
+    /// ||=
+    DoublePipelineEqual,
 } // enum Symbol
 
 /// Literal representation structure
@@ -218,7 +248,20 @@ impl<'t> Iterator for TokenIterator<'t> {
                 comb::map(comb::literal(">"  ), |_| Symbol::TriBrClose),
             )),
             comb::any((
-                comb::map(comb::literal("==" ), |_| Symbol::EqualEqual),
+                comb::map(comb::literal("&&="), |_| Symbol::DoubleAmpersandEqual),
+                comb::map(comb::literal("||="), |_| Symbol::DoublePipelineEqual),
+                comb::map(comb::literal("|=" ), |_| Symbol::PipelineEqual),
+                comb::map(comb::literal("&=" ), |_| Symbol::AmpersandEqual),
+                comb::map(comb::literal("^=" ), |_| Symbol::CircumflexEqual),
+
+                comb::map(comb::literal("&&" ), |_| Symbol::DoubleAmpersand),
+                comb::map(comb::literal("||" ), |_| Symbol::DoublePipeline),
+                comb::map(comb::literal("|"  ), |_| Symbol::Pipeline),
+                comb::map(comb::literal("&"  ), |_| Symbol::Ampersand),
+                comb::map(comb::literal("^"  ), |_| Symbol::Circumflex),
+            )),
+            comb::any((
+                comb::map(comb::literal("==" ), |_| Symbol::DoubleEqual),
                 comb::map(comb::literal("!=" ), |_| Symbol::ExclamationEqual),
                 comb::map(comb::literal("+=" ), |_| Symbol::PlusEqual),
                 comb::map(comb::literal("-=" ), |_| Symbol::MinusEqual),

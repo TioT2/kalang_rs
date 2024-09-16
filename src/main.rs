@@ -12,8 +12,10 @@ fn main() {
     // File -> AST
     let ast = ast::Module::parse(&tokens).expect("Error parsing file");
 
+    println!("{:?}", ast.declarations.get("a").expect("Required \"a\" variable declaration"));
+
     // Display AST
-    println!("{:?}", ast);
+    // println!("{:?}", ast);
 
     // let module_str = include_str!("../examples/declarations.kl");
     // let module = ast::Module::parse(module_str);
