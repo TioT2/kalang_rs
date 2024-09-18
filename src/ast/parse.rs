@@ -33,6 +33,7 @@ pub fn ident<'t>(tl: &'t [Token]) -> PResult<'t, &'t [Token<'t>], &'t str> {
     }
 } // fn literal
 
+/// Mutability parsing function
 pub fn mutability<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Mutability> {
     comb::or(
         comb::any((
@@ -41,7 +42,7 @@ pub fn mutability<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Mutab
         )),
         || Mutability::Const,
     )(tl)
-}
+} // fn mutability
 
 /// Type parsing function
 pub fn ty<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Type> {

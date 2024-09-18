@@ -158,6 +158,18 @@ pub enum Symbol {
 
     /// ||=
     DoublePipelineEqual,
+
+    /// ->
+    Arrow,
+
+    /// =>
+    FatArrow,
+
+    /// .
+    Dot,
+
+    /// ::
+    DoubleColon,
 } // enum Symbol
 
 /// Literal representation structure
@@ -239,88 +251,110 @@ impl<'t> Iterator for TokenIterator<'t> {
 
         let symbol = comb::any((
             comb::any((
-                comb::map(comb::literal("fn"    ), |_| Symbol::Fn    ),
-                comb::map(comb::literal("let"   ), |_| Symbol::Let   ),
-                comb::map(comb::literal("export"), |_| Symbol::Export),
-                comb::map(comb::literal("as"    ), |_| Symbol::As    ),
-                comb::map(comb::literal("enum"  ), |_| Symbol::Enum  ),
-                comb::map(comb::literal("struct"), |_| Symbol::Struct),
-                comb::map(comb::literal("mut"   ), |_| Symbol::Mut   ),
-                comb::map(comb::literal("const" ), |_| Symbol::Const ),
-                comb::map(comb::literal("if"    ), |_| Symbol::If    ),
-                comb::map(comb::literal("else"  ), |_| Symbol::Else  ),
-                comb::map(comb::literal("while" ), |_| Symbol::While ),
-                comb::map(comb::literal("return"), |_| Symbol::Return),
+                comb::value(comb::literal("fn"    ), Symbol::Fn    ),
+                comb::value(comb::literal("let"   ), Symbol::Let   ),
+                comb::value(comb::literal("export"), Symbol::Export),
+                comb::value(comb::literal("as"    ), Symbol::As    ),
+                comb::value(comb::literal("enum"  ), Symbol::Enum  ),
+                comb::value(comb::literal("struct"), Symbol::Struct),
+                comb::value(comb::literal("mut"   ), Symbol::Mut   ),
+                comb::value(comb::literal("const" ), Symbol::Const ),
+                comb::value(comb::literal("if"    ), Symbol::If    ),
+                comb::value(comb::literal("else"  ), Symbol::Else  ),
+                comb::value(comb::literal("while" ), Symbol::While ),
+                comb::value(comb::literal("return"), Symbol::Return),
             )),
             comb::any((
-                comb::map(comb::literal("<<="), |_| Symbol::ShlEqual),
-                comb::map(comb::literal(">>="), |_| Symbol::ShrEqual),
-                comb::map(comb::literal("<=" ), |_| Symbol::TriBrOpenEqual),
-                comb::map(comb::literal(">=" ), |_| Symbol::TriBrCloseEqual),
+                comb::value(comb::literal("<<="), Symbol::ShlEqual),
+                comb::value(comb::literal(">>="), Symbol::ShrEqual),
+                comb::value(comb::literal("<=" ), Symbol::TriBrOpenEqual),
+                comb::value(comb::literal(">=" ), Symbol::TriBrCloseEqual),
 
-                comb::map(comb::literal("<<" ), |_| Symbol::Shl),
-                comb::map(comb::literal(">>" ), |_| Symbol::Shr),
-                comb::map(comb::literal("<"  ), |_| Symbol::TriBrOpen),
-                comb::map(comb::literal(">"  ), |_| Symbol::TriBrClose),
+                comb::value(comb::literal("<<" ), Symbol::Shl),
+                comb::value(comb::literal(">>" ), Symbol::Shr),
+                comb::value(comb::literal("<"  ), Symbol::TriBrOpen),
+                comb::value(comb::literal(">"  ), Symbol::TriBrClose),
             )),
             comb::any((
-                comb::map(comb::literal("&&="), |_| Symbol::DoubleAmpersandEqual),
-                comb::map(comb::literal("||="), |_| Symbol::DoublePipelineEqual),
-                comb::map(comb::literal("|=" ), |_| Symbol::PipelineEqual),
-                comb::map(comb::literal("&=" ), |_| Symbol::AmpersandEqual),
-                comb::map(comb::literal("^=" ), |_| Symbol::CircumflexEqual),
+                comb::value(comb::literal("&&="), Symbol::DoubleAmpersandEqual),
+                comb::value(comb::literal("||="), Symbol::DoublePipelineEqual),
+                comb::value(comb::literal("|=" ), Symbol::PipelineEqual),
+                comb::value(comb::literal("&=" ), Symbol::AmpersandEqual),
+                comb::value(comb::literal("^=" ), Symbol::CircumflexEqual),
 
-                comb::map(comb::literal("&&" ), |_| Symbol::DoubleAmpersand),
-                comb::map(comb::literal("||" ), |_| Symbol::DoublePipeline),
-                comb::map(comb::literal("|"  ), |_| Symbol::Pipeline),
-                comb::map(comb::literal("&"  ), |_| Symbol::Ampersand),
-                comb::map(comb::literal("^"  ), |_| Symbol::Circumflex),
+                comb::value(comb::literal("&&" ), Symbol::DoubleAmpersand),
+                comb::value(comb::literal("||" ), Symbol::DoublePipeline),
+                comb::value(comb::literal("|"  ), Symbol::Pipeline),
+                comb::value(comb::literal("&"  ), Symbol::Ampersand),
+                comb::value(comb::literal("^"  ), Symbol::Circumflex),
             )),
             comb::any((
-                comb::map(comb::literal("==" ), |_| Symbol::DoubleEqual),
-                comb::map(comb::literal("!=" ), |_| Symbol::ExclamationEqual),
-                comb::map(comb::literal("+=" ), |_| Symbol::PlusEqual),
-                comb::map(comb::literal("-=" ), |_| Symbol::MinusEqual),
-                comb::map(comb::literal("/=" ), |_| Symbol::SlashEqual),
-                comb::map(comb::literal("*=" ), |_| Symbol::AsteriskEqual),
+                comb::value(comb::literal("::" ), Symbol::DoubleColon),
+                comb::value(comb::literal("."  ), Symbol::Dot),
+                comb::value(comb::literal(";"  ), Symbol::Semicolon),
+                comb::value(comb::literal(":"  ), Symbol::Colon),
+                comb::value(comb::literal("#"  ), Symbol::Hash),
+                comb::value(comb::literal(","  ), Symbol::Comma),
+                comb::value(comb::literal("->" ), Symbol::Arrow),
+                comb::value(comb::literal("=>" ), Symbol::FatArrow),
+            )),
+            comb::any((
+                comb::value(comb::literal("==" ), Symbol::DoubleEqual),
+                comb::value(comb::literal("!=" ), Symbol::ExclamationEqual),
+                comb::value(comb::literal("+=" ), Symbol::PlusEqual),
+                comb::value(comb::literal("-=" ), Symbol::MinusEqual),
+                comb::value(comb::literal("/=" ), Symbol::SlashEqual),
+                comb::value(comb::literal("*=" ), Symbol::AsteriskEqual),
 
-                comb::map(comb::literal("="  ), |_| Symbol::Equal),
-                comb::map(comb::literal("!"  ), |_| Symbol::Exclamation),
-                comb::map(comb::literal("+"  ), |_| Symbol::Plus),
-                comb::map(comb::literal("-"  ), |_| Symbol::Minus),
-                comb::map(comb::literal("/"  ), |_| Symbol::Slash),
-                comb::map(comb::literal("*"  ), |_| Symbol::Asterisk),
+                comb::value(comb::literal("="  ), Symbol::Equal),
+                comb::value(comb::literal("!"  ), Symbol::Exclamation),
+                comb::value(comb::literal("+"  ), Symbol::Plus),
+                comb::value(comb::literal("-"  ), Symbol::Minus),
+                comb::value(comb::literal("/"  ), Symbol::Slash),
+                comb::value(comb::literal("*"  ), Symbol::Asterisk),
             )),
             comb::any((
-                comb::map(comb::literal("("  ), |_| Symbol::RoundBrOpen),
-                comb::map(comb::literal(")"  ), |_| Symbol::RoundBrClose),
-                comb::map(comb::literal("["  ), |_| Symbol::SquareBrOpen),
-                comb::map(comb::literal("]"  ), |_| Symbol::SquareBrClose),
-                comb::map(comb::literal("{"  ), |_| Symbol::CurlyBrOpen),
-                comb::map(comb::literal("}"  ), |_| Symbol::CurlyBrClose),
-            )),
-            comb::any((
-                comb::map(comb::literal(";"  ), |_| Symbol::Semicolon),
-                comb::map(comb::literal(":"  ), |_| Symbol::Colon),
-                comb::map(comb::literal("#"  ), |_| Symbol::Hash),
-                comb::map(comb::literal(","  ), |_| Symbol::Comma),
+                comb::value(comb::literal("("  ), Symbol::RoundBrOpen),
+                comb::value(comb::literal(")"  ), Symbol::RoundBrClose),
+                comb::value(comb::literal("["  ), Symbol::SquareBrOpen),
+                comb::value(comb::literal("]"  ), Symbol::SquareBrClose),
+                comb::value(comb::literal("{"  ), Symbol::CurlyBrOpen),
+                comb::value(comb::literal("}"  ), Symbol::CurlyBrClose),
             )),
         ));
 
-        let comment = comb::all((
-            comb::literal("//"),
-            comb::repeat(
-                comb::filter(comb::any_char, |ch| *ch != '\n'),
-                || (),
-                |_, _| ()
-            )
+        let comment = comb::any((
+            // Parse singleline comment
+            comb::ignore(
+                comb::all((
+                    comb::literal("//"),
+                    comb::repeat(
+                        comb::filter(comb::any_char, |ch| *ch != '\n'),
+                        || (),
+                        |_, _| ()
+                    ),
+                ))
+            ),
+            // Parse multiline comment
+            comb::ignore(
+                comb::all((
+                    comb::literal("/*"),
+                    comb::repeat(
+                        comb::filter(
+                            comb::any_with_next,
+                            |(c0, c1)| *c0 != '*' && *c1 != '/'
+                        ),
+                        || (),
+                        |_, _| ()
+                    ),
+                    comb::any_char,
+                    comb::any_char,
+                ))
+            ),
         ));
 
         let token = comb::any((
-            comb::map(
-                comment,
-                |_| None,
-            ),
+            comb::value(comment, None),
             comb::map(
                 // Token parsing
                 comb::any((

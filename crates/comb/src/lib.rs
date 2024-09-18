@@ -39,6 +39,26 @@ pub fn map<'t, D: 't, I, O>(
     }
 } // fn map
 
+/// Parsing result ignore function
+/// * parser - parser to ignore value of
+pub fn ignore<'t, D: 't, I>(
+    parser: impl Parser<'t, D, I>
+) -> impl Parser<'t, D, ()> {
+    move |str: D| -> PResult<'t, D, ()> {
+        parser(str).map(|(s, _)| (s, ()))
+    }
+} // fn ignore
+
+/// Set value to void parser (example: literal)
+pub fn value<'t, D: 't, O: Clone>(
+    parser: impl Parser<'t, D, ()>,
+    value: O,
+) -> impl Parser<'t, D, O> {
+    move |str: D| -> PResult<'t, D, O> {
+        parser(str).map(|(s, _)| (s, value.clone()))
+    }
+} // fn value
+
 /// Filtering function
 /// * parser - parser to filter 
 /// * f      - function to filter result of parser by

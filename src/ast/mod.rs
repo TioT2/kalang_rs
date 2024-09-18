@@ -44,6 +44,15 @@ pub enum UnaryOperator {
 
     /// Unary minus operator
     UnaryMinus,
+
+    /// Object field access
+    FieldAccess(String),
+
+    /// Dereferenced field access
+    DereferencedFieldAccess(String),
+
+    /// Namespace access
+    NamespaceAccess(String),
 } // enum UnaryOperator
 
 /// Expression representation structure
@@ -61,10 +70,10 @@ pub enum Expression {
         literal: Literal,
     },
 
-    /// Array of some kind of values
+    /// Array initializer
     Array {
         /// Array initializer
-        initializer: Vec<Expression>,
+        elements: Vec<Expression>,
     },
 
     /// Structure initializer
@@ -320,13 +329,7 @@ fn parse_variable<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t 
     comb::map(
         comb::all((
             parse::symbol(Symbol::Let),
-            comb::or(
-                comb::any((
-                    comb::map(parse::symbol(Symbol::Mut), |_| Mutability::Mut),
-                    comb::map(parse::symbol(Symbol::Const), |_| Mutability::Const),
-                )),
-                || Mutability::Const,
-            ),
+            parse::mutability,
             parse::ident,
             parse::symbol(Symbol::Colon),
             parse::ty,
@@ -383,16 +386,16 @@ fn parse_statement<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Stat
             parse::symbol(Symbol::If),
             parse_expression,
             parse_block,
-            comb::any((
+            comb::or(
                 comb::map(
                     comb::all((
                         parse::symbol(Symbol::Else),
-                        parse_block
+                        parse_block,
                     )),
                     |(_, block)| Some(block),
                 ),
-                comb::map(comb::identity, |_| None)
-            )),
+                || Option::<Block>::None,
+            ),
         )),
         |(_, condition, then_code, else_code)| Statement::If {
             condition: Box::new(condition),

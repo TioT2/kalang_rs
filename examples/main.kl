@@ -1,5 +1,5 @@
-// First comment
-let a: i32 = 5 += *7[12, iqueue, 42.71 / 11.5] - +3 += 9(a, b, c);
+/* The First Comment */
+let a: i32 = 5 += *7[12, mipt::cat.face, 42.71 / 11.5] - +3 += 9(a, b, c);
 
 // Second comment
 let queue: f32;

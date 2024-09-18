@@ -1,6 +1,6 @@
 use comb::PResult;
 use crate::lexer::{Symbol, Token};
-use super::{parse, UnaryOperator, BinaryOperator, Expression, Mutability, Type};
+use super::{parse, BinaryOperator, Expression, Mutability, Type, UnaryOperator};
 
 /// AST building helper
 struct ExpressionAstBuilder {
@@ -120,6 +120,7 @@ fn parse_indexing_or_call<'t>(
 } // fn parse_indexing_or_call
 
 /// Prefix unary operator parsing function
+#[derive(Debug, Copy, Clone)]
 pub enum PrefixUnaryOperator {
     /// Negation operator
     Minus,
@@ -144,40 +145,34 @@ pub enum PostfixUnaryOperator {
 
     /// Casting to type operator
     Cast(Box<Type>),
+
+    /// Access to field
+    FieldAccess(String),
+
+    /// Field access to dereferenced object
+    DereferencedFieldAccess(String),
+
+    /// Access to namespace
+    NamespaceAccess(String),
 } // enum PostfixUnaryOperator
 
 /// Prefix operator parsing function
 fn parse_prefix_operator<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], PrefixUnaryOperator> {
     comb::any((
         // dereference
-        comb::map(
-            parse::symbol(Symbol::Asterisk),
-            |_| PrefixUnaryOperator::Dereference,
-        ),
+        comb::value(parse::symbol(Symbol::Asterisk), PrefixUnaryOperator::Dereference),
 
         // unary +
-        comb::map(
-            parse::symbol(Symbol::Plus),
-            |_| PrefixUnaryOperator::Plus,
-        ),
+        comb::value(parse::symbol(Symbol::Plus), PrefixUnaryOperator::Plus),
 
         // unary -
-        comb::map(
-            parse::symbol(Symbol::Minus),
-            |_| PrefixUnaryOperator::Minus,
-        ),
+        comb::value(parse::symbol(Symbol::Minus), PrefixUnaryOperator::Minus),
 
         // reference
         comb::map(
             comb::all((
                 parse::symbol(Symbol::Ampersand),
-                comb::or(
-                    comb::any((
-                        comb::map(parse::symbol(Symbol::Mut), |_| Mutability::Mut),
-                        comb::map(parse::symbol(Symbol::Const), |_| Mutability::Const),
-                    )),
-                    || Mutability::Const
-                ),
+                parse::mutability,
             )),
             |(_, mutability)| PrefixUnaryOperator::Reference(mutability)
         )
@@ -202,7 +197,28 @@ fn parse_postfix_operator<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>
                 parse::ty,
             )),
             |(_, ty)| PostfixUnaryOperator::Cast(Box::new(ty)),
-        )
+        ),
+        comb::map(
+            comb::all((
+                parse::symbol(Symbol::Dot),
+                parse::ident,
+            )),
+            |(_, ident)| PostfixUnaryOperator::FieldAccess(ident.to_string()),
+        ),
+        comb::map(
+            comb::all((
+                parse::symbol(Symbol::Arrow),
+                parse::ident,
+            )),
+            |(_, ident)| PostfixUnaryOperator::DereferencedFieldAccess(ident.to_string()),
+        ),
+        comb::map(
+            comb::all((
+                parse::symbol(Symbol::DoubleColon),
+                parse::ident,
+            )),
+            |(_, ident)| PostfixUnaryOperator::NamespaceAccess(ident.to_string()),
+        ),
     ))(tl)
 } // fn parse_postfix_operator
 
@@ -240,7 +256,7 @@ fn parse_expression_value<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>
                 ),
                 parse::symbol(Symbol::SquareBrClose),
             )),
-            |(_, initializer, _)| Expression::Array { initializer }
+            |(_, elements, _)| Expression::Array { elements }
         ),
 
         // Structure
@@ -318,6 +334,9 @@ pub fn parse_expression<'t>(mut tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'
                             PostfixUnaryOperator::Call(parameters) => UnaryOperator::Call(parameters),
                             PostfixUnaryOperator::Index(indices) => UnaryOperator::Index(indices),
                             PostfixUnaryOperator::Cast(ty) => UnaryOperator::Cast(ty),
+                            PostfixUnaryOperator::FieldAccess(field) => UnaryOperator::FieldAccess(field),
+                            PostfixUnaryOperator::NamespaceAccess(element) => UnaryOperator::NamespaceAccess(element),
+                            PostfixUnaryOperator::DereferencedFieldAccess(field) => UnaryOperator::DereferencedFieldAccess(field),
                         }),
                     prefix_operators
                         .into_iter()

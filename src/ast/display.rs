@@ -132,9 +132,9 @@ impl std::fmt::Display for Declaration {
 impl std::fmt::Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Array { initializer } => {
+            Self::Array { elements } => {
                 f.write_str("[")?;
-                if let Some((head, tail)) = initializer.split_first() {
+                if let Some((head, tail)) = elements.split_first() {
                     head.fmt(f)?;
                     for elem in tail {
                         f.write_str(", ")?;
@@ -253,6 +253,18 @@ impl std::fmt::Display for UnaryOperator {
             }
             Self::UnaryPlus => {
                 f.write_str("+")
+            }
+            Self::FieldAccess(field) => {
+                f.write_str(".")?;
+                field.fmt(f)
+            }
+            Self::DereferencedFieldAccess(field) => {
+                f.write_str("->")?;
+                field.fmt(f)
+            }
+            Self::NamespaceAccess(element) => {
+                f.write_str("::")?;
+                element.fmt(f)
             }
         }
     }

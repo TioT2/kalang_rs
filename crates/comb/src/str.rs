@@ -48,6 +48,15 @@ pub fn any_char<'t>(input: &'t str) -> PResult<&'t str, char> {
     }
 } // fn any_char
 
+/// Pairwise character repeats
+pub fn any_with_next<'t>(input: &'t str) -> PResult<&'t str, (char, char)> {
+    let mut chs = input.chars();
+    let c0 = chs.next().ok_or(input)?;
+    let c1 = chs.next().ok_or(input)?;
+
+    Ok((&input[c0.len_utf8()..], (c0, c1)))
+} // fn pairwise
+
 /// Any whitespace character parser
 pub fn any_whitespace<'t>(input: &'t str, ) -> PResult<&'t str, char> {
     if let Some(next) = input.chars().next().filter(|v| v.is_whitespace()) {

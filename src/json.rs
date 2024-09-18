@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use comb::{self, all, any, filter, repeat, map, repeat_with_separator, PResult};
+use comb::{self, all, any, filter, map, repeat, repeat_with_separator, value, PResult};
 
 /// JSON element representation sturcture
 #[derive(Clone, Debug)]
@@ -68,8 +68,8 @@ fn parse_string(str: &str) -> PResult<&str, Json> {
 fn parse_bool(str: &str) -> PResult<&str, Json> {
     map(
         any((
-            map(comb::literal("true" ), |_| true ),
-            map(comb::literal("false"), |_| false)
+            value(comb::literal("true" ), true ),
+            value(comb::literal("false"), false)
         )),
         Json::Boolean
     )(str)
@@ -77,10 +77,7 @@ fn parse_bool(str: &str) -> PResult<&str, Json> {
 
 /// NULL parse function
 fn parse_null(str: &str) -> PResult<&str, Json> {
-    map(
-        comb::literal("null"),
-        |_| Json::Null
-    )(str)
+    value(comb::literal("null"), Json::Null)(str)
 } // fn parse_null
 
 /// whitespace sequence parsing function
