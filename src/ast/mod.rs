@@ -1,4 +1,3 @@
-
 mod parse;
 mod expression;
 mod operator;
@@ -164,7 +163,9 @@ pub enum Statement {
         expression: Box<Expression>,
     },
 
+    /// Block
     Block {
+        /// Block code
         code: Box<Block>,
     },
 } // enum Statement
