@@ -27,7 +27,7 @@ pub fn ident<'t>(tl: &'t [Token]) -> PResult<'t, &'t [Token<'t>], &'t str> {
 /// Any literal parser
  pub fn literal<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Literal> {
     if let Some(Token::Literal(lit)) = tl.get(0) {
-        Ok((&tl[1..], *lit))
+        Ok((&tl[1..], lit.clone()))
     } else {
         Err(tl)
     }

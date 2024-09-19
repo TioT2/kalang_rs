@@ -173,13 +173,19 @@ pub enum Symbol {
 } // enum Symbol
 
 /// Literal representation structure
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Literal {
     /// Floating point literal
     Floating(f64),
 
     /// Integer literal
     Integer(u64),
+
+    /// Character literal
+    Char(char),
+
+    /// String literal
+    String(String),
 } // enum Literal
 
 /// Token representation structure
@@ -194,6 +200,45 @@ pub enum Token<'t> {
     /// Just string, lol
     Ident(&'t str),
 }
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum CharType {
+    /// Raw character
+    Raw,
+    /// Character, parsed as escape sequence
+    Escape,
+} // enum CharType
+
+/// Character with escape sequence parsing function
+fn any_escape_char<'t>(str: &'t str) -> PResult<'t, &'t str, (char, CharType)> {
+    let mut chs = str.chars();
+
+    let first = chs.next().ok_or(str)?;
+
+    if first == '\\' {
+        let next = chs.next().ok_or(str)?;
+
+        Ok((&str[first.len_utf8() + next.len_utf8()..], (match next {
+            '\'' => 0x27 as char,
+            '\"' => 0x22 as char,
+            '?'  => 0x3F as char,
+            '\\' => 0x5C as char,
+            'a'  => 0x07 as char,
+            'b'  => 0x08 as char,
+            'f'  => 0x0C as char,
+            'n'  => 0x0A as char,
+            'r'  => 0x0D as char,
+            't'  => 0x09 as char,
+            'v'  => 0x0B as char,
+            _ => return Err(str),
+        }, CharType::Escape)))
+    } else {
+        Ok((
+            &str[first.len_utf8()..],
+            (first, CharType::Raw),
+        ))
+    }
+} // fn any_escape_char
 
 /// Ident parsing function
 fn ident<'t>(str: &'t str) -> PResult<'t, &'t str, &'t str> {
@@ -213,6 +258,15 @@ fn ident<'t>(str: &'t str) -> PResult<'t, &'t str, &'t str> {
         &str[total_len..],
         &str[..total_len],
     ))
+}
+
+fn string_literal<'t>(str: &'t str) -> PResult<'t, &'t str, String> {
+    comb::collect_repeat::<String, _, _>(
+        comb::map(
+            comb::filter(any_escape_char, |ch| *ch != ('\"', CharType::Raw)),
+            |(ch, _)| ch
+        )
+    )(str)
 }
 
 /// Source -> Tokens conversion iterator
@@ -246,7 +300,26 @@ impl<'t> Iterator for TokenIterator<'t> {
                     comb::all((comb::identity     , comb::decimal_number    )), // Decimal literal
                 )),
                 |(_, n)| Literal::Integer(n)
-            )
+            ),
+
+            // Try to parse string literal
+            comb::map(
+                comb::all((
+                    comb::literal("\""),
+                    string_literal,
+                    comb::literal("\""),
+                )),
+                |(_, str, _)| Literal::String(str.to_string())
+            ),
+
+            comb::map(
+                comb::all((
+                    comb::literal("\'"),
+                    any_escape_char,
+                    comb::literal("\'"),
+                )),
+                |(_, (ch, _), _)| Literal::Char(ch),
+            ),
         ));
 
         let symbol = comb::any((

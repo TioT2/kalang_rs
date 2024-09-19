@@ -146,13 +146,22 @@ impl std::fmt::Display for Expression {
             Self::BinaryOperator { lhs, rhs, operator } => {
                 f.write_fmt(format_args!("({lhs} {operator} {rhs})"))
             }
-            Self::Ident { ident } => {
+            Self::Ident(ident) => {
                 f.write_str(ident)
             }
-            Self::Literal { literal } => {
-                literal.fmt(f)
+            Self::IntegerConstant(int) => {
+                int.fmt(f)
             }
-            Self::Structure { name, fields } => {
+            Self::FloatingConstant(flt) => {
+                flt.fmt(f)
+            }
+            Self::StringConstant(str) => {
+                str.fmt(f)
+            }
+            Self::CharacterConstant(char) => {
+                char.fmt(f)
+            }
+            Self::Structure { type_name: name, fields } => {
                 f.write_str(name)?;
                 f.write_str("{ ")?;
                 if let Some((head, tail)) = fields.split_first() {
@@ -175,6 +184,8 @@ impl std::fmt::Display for Literal {
         match self {
             Self::Floating(flt) => flt.fmt(f),
             Self::Integer(int) => int.fmt(f),
+            Self::String(str) => str.fmt(f),
+            Self::Char(chr) => chr.fmt(f),
         }
     }
 }

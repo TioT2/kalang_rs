@@ -1,88 +1,16 @@
+mod builder;
+
 use comb::PResult;
-use crate::lexer::{Symbol, Token};
+use crate::lexer::{Literal, Symbol, Token};
 use super::{parse, BinaryOperator, Expression, Mutability, Type, UnaryOperator};
 
-/// AST building helper
-struct ExpressionAstBuilder {
-    /// Output stack
-    values: Vec<Expression>,
-
-    /// Operators
-    operators: Vec<BinaryOperator>,
-} // struct ExpressionAstBuilder
-
-impl ExpressionAstBuilder {
-    /// Constructor
-    pub fn new() -> Self {
-        Self {
-            operators: Vec::new(),
-            values: Vec::new()
-        }
-    } // fn new
-
-    /// Binary operator pushing function
-    pub fn push_binary_operator(&mut self, op: BinaryOperator) -> Option<()> {
-        let info = op.info();
-
-        'operator_parsing: while let Some(other) = self.operators.last().cloned() {
-            let other_info = other.info();
-
-            let assoc = if info.is_left_assoc {
-                other_info.priority <= info.priority
-            } else {
-                other_info.priority < info.priority
-            };
-
-            if assoc {
-                let expr = Expression::BinaryOperator {
-                    rhs: Box::new(self.values.pop()?),
-                    lhs: Box::new(self.values.pop()?),
-                    operator: other,
-                };
-                self.values.push(expr);
-                self.operators.pop();
-            } else {
-                break 'operator_parsing;
-            }
-        }
-
-        self.operators.push(op);
-
-        Some(())
-    } // fn push_binary_operator
-
-    /// Expression (actually, value) pushing function
-    pub fn push_expression(&mut self, value: Expression) {
-        self.values.push(value);
-    } // fn push_expression
-
-    /// Final expression getting function
-    pub fn build(self) -> Option<Expression> {
-        let mut values = self.values;
-
-        for op in self.operators.into_iter().rev() {
-            let rhs = values.pop()?;
-            let lhs = values.pop()?;
-
-            values.push(Expression::BinaryOperator {
-                lhs: Box::new(lhs),
-                rhs: Box::new(rhs),
-                operator: op
-            })
-        }
-
-        if values.len() == 1 {
-            Some(values.remove(0))
-        } else {
-            None
-        }
-    } // fn build
-} // impl ExpressionAstBuilder
+use builder::ExpressionAstBuilder;
 
 /// Internal helper enum
 enum IndexingOrCall {
     /// Is indexing
     Indexing,
+
     /// Is call
     Call,
 } // enum IndexingOrCall
@@ -238,7 +166,12 @@ fn parse_expression_value<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>
         // Literal
         comb::map(
             parse::literal,
-            |literal| Expression::Literal { literal }
+            |literal| match literal {
+                Literal::Floating(fpn) => Expression::FloatingConstant(fpn),
+                Literal::Integer(int) => Expression::IntegerConstant(int),
+                Literal::String(str) => Expression::StringConstant(str),
+                Literal::Char(chr) => Expression::CharacterConstant(chr),
+            }
         ),
 
         // Array
@@ -280,7 +213,7 @@ fn parse_expression_value<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>
                 parse::symbol(Symbol::CurlyBrClose),
             )),
             |(name, _, fields, _)| Expression::Structure {
-                name: name.to_string(),
+                type_name: name.to_string(),
                 fields
             }
         ),
@@ -288,7 +221,7 @@ fn parse_expression_value<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>
         // Just ident, lol
         comb::map(
             parse::ident,
-            |ident| Expression::Ident { ident: ident.to_string() },
+            |ident| Expression::Ident(ident.to_string()),
         ),
     ))(tl)
 } // fn parse_expression_value

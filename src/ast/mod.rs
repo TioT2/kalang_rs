@@ -59,16 +59,19 @@ pub enum UnaryOperator {
 #[derive(Clone, Debug)]
 pub enum Expression {
     /// Just ident
-    Ident {
-        /// Ident
-        ident: String,
-    },
+    Ident(String),
 
-    /// Literal (inline value)
-    Literal {
-        /// Literal
-        literal: Literal,
-    },
+    /// Integer literal
+    IntegerConstant(u64),
+
+    /// Floating point literal
+    FloatingConstant(f64),
+
+    /// String literal
+    StringConstant(String),
+
+    /// Character literal
+    CharacterConstant(char),
 
     /// Array initializer
     Array {
@@ -78,8 +81,8 @@ pub enum Expression {
 
     /// Structure initializer
     Structure {
-        /// Structure name
-        name: String,
+        /// Structure type name
+        type_name: String,
 
         /// Fields
         fields: Vec<(String, Expression)>,

@@ -25,7 +25,10 @@ struct vec_queue_element {
 // Returns exit status
 fn main(argc: i32, argv: **u8) i32 {
     let tridcat: i32 = 30.0 as i32;
+    __builtin_print_str("CGSG FOREVER!!! ");
     __builtin_print_i32(30);
+    __builtin_print_str("!!!");
+    __builtin_print_char('\n');
     return 0;
 }
 
