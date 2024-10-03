@@ -63,10 +63,16 @@ pub enum Expression {
     Ident(String),
 
     /// Integer literal
-    IntegerConstant(u64),
+    IntegerConstant {
+        number: u64,
+        postfix: String,
+    },
 
     /// Floating point literal
-    FloatingConstant(f64),
+    FloatingConstant {
+        number: f64,
+        postfix: String,
+    },
 
     /// String literal
     StringConstant(String),

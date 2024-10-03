@@ -150,11 +150,13 @@ impl std::fmt::Display for Expression {
             Self::Ident(ident) => {
                 f.write_str(ident)
             }
-            Self::IntegerConstant(int) => {
-                int.fmt(f)
+            Self::IntegerConstant { number, postfix } => {
+                number.fmt(f)?;
+                postfix.fmt(f)
             }
-            Self::FloatingConstant(flt) => {
-                flt.fmt(f)
+            Self::FloatingConstant { number, postfix } => {
+                number.fmt(f)?;
+                postfix.fmt(f)
             }
             Self::StringConstant(str) => {
                 str.fmt(f)
@@ -183,8 +185,8 @@ impl std::fmt::Display for Expression {
 impl std::fmt::Display for Literal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Floating(flt) => flt.fmt(f),
-            Self::Integer(int) => int.fmt(f),
+            Self::Floating { number, postfix } => write!(f, "{}{}", number, postfix),
+            Self::Integer { number, postfix } => write!(f, "{}{}", number, postfix),
             Self::String(str) => str.fmt(f),
             Self::Char(chr) => chr.fmt(f),
         }

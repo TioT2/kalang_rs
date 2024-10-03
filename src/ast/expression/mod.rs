@@ -167,8 +167,8 @@ fn parse_expression_value<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>
         comb::map(
             parse::literal,
             |literal| match literal {
-                Literal::Floating(fpn) => Expression::FloatingConstant(fpn),
-                Literal::Integer(int) => Expression::IntegerConstant(int),
+                Literal::Floating { number, postfix } => Expression::FloatingConstant { number, postfix },
+                Literal::Integer { number, postfix } => Expression::IntegerConstant { number, postfix },
                 Literal::String(str) => Expression::StringConstant(str),
                 Literal::Char(chr) => Expression::CharacterConstant(chr),
             }

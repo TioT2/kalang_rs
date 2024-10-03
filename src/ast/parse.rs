@@ -99,7 +99,7 @@ pub fn ty<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Type> {
                     comb::filter_map(
                         literal,
                         |literal| match literal {
-                            Literal::Integer(i) => Some(i as usize),
+                            Literal::Integer { number, .. } => Some(number as usize),
                             _ => None
                         }
                     ),
@@ -110,6 +110,7 @@ pub fn ty<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Type> {
                     size
                 }
             )(&tl[1..])
+
         }
         Token::Symbol(Symbol::Asterisk) => {
             comb::map(

@@ -2,6 +2,6 @@
 
 pub mod lexer;
 pub mod ast;
-pub mod mir;
+pub mod tir;
 
 // file lib.rs

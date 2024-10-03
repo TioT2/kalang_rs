@@ -178,10 +178,16 @@ pub enum Symbol {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Literal {
     /// Floating point literal
-    Floating(f64),
+    Floating {
+        number: f64,
+        postfix: String,
+    },
 
     /// Integer literal
-    Integer(u64),
+    Integer {
+        number: u64,
+        postfix: String,
+    },
 
     /// Character literal
     Char(char),
@@ -210,6 +216,21 @@ pub enum CharType {
     /// Character, parsed as escape sequence
     Escape,
 } // enum CharType
+
+trait CharIdentProperties {
+    fn is_ident_head(self) -> bool;
+    fn is_ident_tail(self) -> bool;
+}
+
+impl CharIdentProperties for char {
+    fn is_ident_head(self) -> bool {
+        self.is_alphabetic() || self == '_' || self == '$'
+    }
+
+    fn is_ident_tail(self) -> bool {
+        self.is_ident_head() || self.is_numeric()
+    }
+}
 
 /// Character with escape sequence parsing function
 fn any_escape_char<'t>(str: &'t str) -> PResult<'t, &'t str, (char, CharType)> {
@@ -248,12 +269,12 @@ fn ident<'t>(str: &'t str) -> PResult<'t, &'t str, &'t str> {
 
     let first = chars.next().ok_or(str)?;
 
-    if !(first.is_alphabetic() || first == '_') {
+    if !(first.is_ident_head()) {
         return Err(str);
     }
 
     let total_len = chars
-        .take_while(|v| v.is_alphanumeric() || *v == '_')
+        .take_while(|v| v.is_ident_tail())
         .fold(first.len_utf8(), |total, ch| total + ch.len_utf8());
 
     Ok((
@@ -289,19 +310,39 @@ impl<'t> Iterator for TokenIterator<'t> {
     type Item = Token<'t>;
 
     fn next(&mut self) -> Option<Self::Item> {
+
+        /// Numeric literal postfix parsing function
+        fn numeric_literal_postfix<'t>(str: &'t str) -> PResult<'t, &'t str, String> {
+            comb::collect_repeat(
+                comb::filter(
+                    comb::any_char,
+                    |ch| ch.is_ident_tail()
+                )
+            )(str)
+        } // fn numeric_literal_postfix
+
         let literal = comb::any((
             // Try to parse FP literal
-            comb::map(comb::floating_number, Literal::Floating),
+            comb::map(
+                comb::all((
+                    comb::floating_number,
+                    numeric_literal_postfix
+                )),
+                |(number, postfix)| Literal::Floating { number, postfix }
+            ),
 
             // Try to parse integer literal
             comb::map(
-                comb::any((
-                    comb::all((comb::literal("0b"), comb::binary_number     )), // Binary literal
-                    comb::all((comb::literal("0x"), comb::hexadecimal_number)), // Hexadecimal literal
-                    comb::all((comb::literal("0o"), comb::octal_number      )), // Octal literal
-                    comb::all((comb::identity     , comb::decimal_number    )), // Decimal literal
+                comb::all((
+                    comb::any((
+                        comb::all((comb::literal("0b"), comb::binary_number     )), // Binary literal
+                        comb::all((comb::literal("0x"), comb::hexadecimal_number)), // Hexadecimal literal
+                        comb::all((comb::literal("0o"), comb::octal_number      )), // Octal literal
+                        comb::all((comb::identity     , comb::decimal_number    )), // Decimal literal
+                    )),
+                    numeric_literal_postfix,
                 )),
-                |(_, n)| Literal::Integer(n)
+                |((_, number), postfix)| Literal::Integer { number, postfix }
             ),
 
             // Try to parse string literal
