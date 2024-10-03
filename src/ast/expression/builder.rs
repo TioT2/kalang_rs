@@ -1,5 +1,3 @@
-
-
 use crate::ast::{BinaryOperator, Expression};
 
 /// AST building helper
@@ -51,7 +49,7 @@ impl ExpressionAstBuilder {
         Some(())
     } // fn push_binary_operator
 
-    /// Expression (actually, value) pushing function
+    /// Expression behaves as solid value pushing function
     pub fn push_expression(&mut self, value: Expression) {
         self.values.push(value);
     } // fn push_expression

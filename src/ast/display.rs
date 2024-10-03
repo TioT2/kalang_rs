@@ -34,6 +34,7 @@ impl std::fmt::Display for PrimitiveType {
             Self::F64   => "f64",
             Self::Usize => "usize",
             Self::Isize => "isize",
+            Self::Char  => "char",
             Self::Void  => "void",
             Self::Never => "never",
         })

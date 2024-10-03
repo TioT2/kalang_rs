@@ -18,7 +18,7 @@ enum IndexingOrCall {
 /// Indexing or function call postfix operator parsing function
 fn parse_indexing_or_call<'t>(
     mut tl: &'t [Token<'t>]
-) -> PResult<'t, &'t [Token], (IndexingOrCall, Vec<Expression>)> {
+) -> PResult<'t, &'t [Token<'t>], (IndexingOrCall, Vec<Expression>)> {
     let (indexing_or_call, expected_end) = match tl.get(0) {
         Some(Token::Symbol(Symbol::RoundBrOpen)) => (IndexingOrCall::Call, Symbol::RoundBrClose),
         Some(Token::Symbol(Symbol::SquareBrOpen)) => (IndexingOrCall::Indexing, Symbol::SquareBrClose),

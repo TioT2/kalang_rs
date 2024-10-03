@@ -1,3 +1,5 @@
+//! Abstract Syntax Tree implementation module
+
 mod parse;
 mod expression;
 mod operator;
@@ -208,6 +210,9 @@ pub enum PrimitiveType {
     /// Signed number with size of pointer
     Isize,
 
+    /// Character type
+    Char,
+
     /// Empty type
     Void,
 
@@ -231,6 +236,7 @@ impl PrimitiveType {
             "f64"   => Some(PrimitiveType::F64  ),
             "usize" => Some(PrimitiveType::Usize),
             "isize" => Some(PrimitiveType::Isize),
+            "char"  => Some(PrimitiveType::Char ),
             "void"  => Some(PrimitiveType::Void ),
             "!"     => Some(PrimitiveType::Never),
             _ => None,
@@ -280,6 +286,26 @@ pub enum Type {
         output: Box<Type>,
     },
 } // enum Type
+
+// pub struct Function {
+//     pub inputs: Vec<(String, Mutability, Type)>,
+//     pub output: Box<Type>,
+//     pub implementation: Option<Box<Block>>,
+// }
+// 
+// pub struct Variable {
+//     pub ty: Box<Type>,
+//     pub mutability: Mutability,
+//     pub initializer: Option<Box<Expression>>,
+// }
+// 
+// pub struct Structure {
+//     pub elements: Vec<(String, Type)>,
+// }
+// 
+// pub struct Enumeration {
+//     pub variants: Vec<(String, Option<Box<Expression>>)>,
+// }
 
 /// Declaration representation enumeration
 #[derive(Clone, Debug)]

@@ -1,3 +1,5 @@
+//! Source lexical analyzer implementation module
+
 use comb::PResult;
 
 /// Symbol representation enumeration
