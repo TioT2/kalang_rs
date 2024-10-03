@@ -1,6 +1,6 @@
 //! Typed intermediate representation implementation module
 
-use crate::ast::{self, Type};
+use crate::ast;
 
 /// Constant of primitive type
 pub enum PrimitiveConstant {
@@ -42,26 +42,35 @@ pub enum PrimitiveConstant {
 
     /// Character type
     Char(char),
+} // enum PrimitiveConstant
 
-    /// Empty type
-    Void,
+/// Expression representation enumeration
+pub struct Expression {
 }
 
-pub enum Expression {
-    Constant {
-        ty: Box<Type>,
-        value: Box<Expression>,
-    },
-    Array {
-        element_ty: Box<Type>,
-        values: Vec<Expression>,
-    },
+pub struct Enum {
+    /// Enumeration variants
+    pub variants: Vec<(String, usize)>,
+} // struct Enum
+
+pub struct Module {
+
+} //struct Module
+
+/// Unimplemented language feature
+#[derive(Clone, Debug)]
+pub enum UnimplementedFeature {
+    /// Explicit enumeration value setting (yeah)
+    ExplicitEnumValue,
 }
 
-pub struct Module {}
+#[derive(Clone, Debug)]
+pub enum AstLoweringError {
+    UnimplementedFeature(UnimplementedFeature),
+}
 
 impl Module {
-    pub fn from_ast(_ast: &ast::Module) -> Self {
+    pub fn lower_ast(_ast: &ast::Module) -> Result<Self, AstLoweringError> {
         todo!()
     }
 }

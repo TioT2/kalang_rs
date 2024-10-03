@@ -80,50 +80,69 @@ impl std::fmt::Display for Type {
     }
 }
 
+impl std::fmt::Display for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("fn ("))?;
+
+        if let Some((first, rest)) = self.inputs.split_first() {
+            f.write_fmt(format_args!("{} {}: {}", first.1, first.0, first.2))?;
+            for input in rest {
+                f.write_fmt(format_args!(", {} {}: {}", input.1, input.0, input.2))?;
+            }
+        }
+
+        f.write_fmt(format_args!(") {}", self.output))?;
+        if self.implementation.is_some() {
+            f.write_str(" { ... }")
+        } else {
+            f.write_str(";")
+        }
+    }
+}
+
+impl std::fmt::Display for Variable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let r = write!(f, "{} {}", self.mutability, self.ty);
+        if let Some(initializer) = &self.initializer {
+            r?;
+            write!(f, " = {}", initializer)
+        } else {
+            r
+        }
+    }
+}
+
+impl std::fmt::Display for Structure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("struct {\n")?;
+        for (name, ty) in &self.elements {
+            f.write_fmt(format_args!("  {name}: {ty},\n"))?;
+        }
+        f.write_str("}")
+    }
+}
+
+impl std::fmt::Display for Enumeration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "enum {{\n")?;
+        for (name, expr) in &self.variants {
+            f.write_fmt(format_args!("    {}", name))?;
+            if let Some(index) = &expr {
+                f.write_fmt(format_args!(" = {}", index))?;
+            }
+            f.write_str(",\n")?;
+        }
+        write!(f, "}}")
+    }
+}
+
 impl std::fmt::Display for Declaration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
-            Self::Enumeration { variants } => {
-                f.write_fmt(format_args!("enum {{\n"))?;
-                for variant in variants {
-                    f.write_fmt(format_args!("    {}", variant.0))?;
-                    if let Some(index) = &variant.1 {
-                        f.write_fmt(format_args!(" = {}", index))?;
-                    }
-                    f.write_str(",\n")?;
-                }
-                f.write_fmt(format_args!("}}"))?;
-            },
-            Self::Function { inputs, output, implementation } => {
-                f.write_fmt(format_args!("fn ("))?;
-
-                if let Some((first, rest)) = inputs.split_first() {
-                    f.write_fmt(format_args!("{} {}: {}", first.1, first.0, first.2))?;
-                    for input in rest {
-                        f.write_fmt(format_args!(", {} {}: {}", input.1, input.0, input.2))?;
-                    }
-                }
-
-                f.write_fmt(format_args!(") {}", output))?;
-                if implementation.is_some() {
-                    f.write_str(" { ... }")?;
-                } else {
-                    f.write_str(";")?;
-                }
-            },
-            Self::Structure { elements } => {
-                f.write_str("struct {\n")?;
-                for (name, ty) in elements {
-                    f.write_fmt(format_args!("  {name}: {ty},\n"))?;
-                }
-                f.write_str("}")?;
-            },
-            Self::Variable { ty, mutability, initializer } => {
-                f.write_fmt(format_args!("{mutability} {ty}"))?;
-                if let Some(initializer) = initializer {
-                    f.write_fmt(format_args!(" = {initializer}"))?;
-                }
-            },
+            Self::Enumeration(enu) => enu.fmt(f)?,
+            Self::Function(func) => func.fmt(f)?,
+            Self::Structure(str) => str.fmt(f)?,
+            Self::Variable(var) => var.fmt(f)?,
         }
 
         f.write_str(" ")

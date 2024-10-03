@@ -293,64 +293,60 @@ pub enum Type {
     },
 } // enum Type
 
-// pub struct Function {
-//     pub inputs: Vec<(String, Mutability, Type)>,
-//     pub output: Box<Type>,
-//     pub implementation: Option<Box<Block>>,
-// }
-// 
-// pub struct Variable {
-//     pub ty: Box<Type>,
-//     pub mutability: Mutability,
-//     pub initializer: Option<Box<Expression>>,
-// }
-// 
-// pub struct Structure {
-//     pub elements: Vec<(String, Type)>,
-// }
-// 
-// pub struct Enumeration {
-//     pub variants: Vec<(String, Option<Box<Expression>>)>,
-// }
+/// Function AST representaiton structure
+#[derive(Clone, Debug)]
+pub struct Function {
+    /// Function input types
+    pub inputs: Vec<(String, Mutability, Type)>,
+
+    /// Function output type
+    pub output: Box<Type>,
+
+    /// Function code
+    pub implementation: Option<Box<Block>>,
+} // struct Function
+
+/// Variable AST (global and in-block) representation structure
+#[derive(Clone, Debug)]
+pub struct Variable {
+    /// Type
+    pub ty: Box<Type>,
+
+    /// Mutability
+    pub mutability: Mutability,
+
+    /// Initializer expression
+    pub initializer: Option<Box<Expression>>,
+} // struct Variable
+
+/// Structure AST representation structure
+#[derive(Clone, Debug)]
+pub struct Structure {
+    /// Structure element names and types
+    pub elements: Vec<(String, Type)>,
+} // struct Structure
+
+/// Enumeration AST representation structure
+#[derive(Clone, Debug)]
+pub struct Enumeration {
+    /// Enumeration variants (name - initializer)
+    pub variants: Vec<(String, Option<Box<Expression>>)>,
+} // struct Enumeration
 
 /// Declaration representation enumeration
 #[derive(Clone, Debug)]
 pub enum Declaration {
     /// Function
-    Function {
-        /// Input set
-        inputs: Vec<(String, Mutability, Type)>,
-
-        /// return value
-        output: Box<Type>,
-
-        /// Function implementation
-        implementation: Option<Box<Block>>,
-    },
+    Function(Function),
 
     /// Variable (ded uebet)
-    Variable {
-        /// Type
-        ty: Box<Type>,
-
-        /// Mutability
-        mutability: Mutability,
-
-        /// Initializer expression
-        initializer: Option<Box<Expression>>,
-    },
+    Variable(Variable),
 
     /// Structure
-    Structure {
-        /// Structure elements
-        elements: Vec<(String, Type)>,
-    },
+    Structure(Structure),
 
-    /// Enum
-    Enumeration {
-        /// Variants
-        variants: Vec<(String, Option<Box<Expression>>)>,
-    },
+    /// Enumeration
+    Enumeration(Enumeration),
 } // enum Declaration
 
 /// Module representation structure
@@ -361,7 +357,7 @@ pub struct Module {
 } // struct Module
 
 /// Variable parsing function
-fn parse_variable<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
+fn parse_variable<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Variable)> {
     comb::map(
         comb::all((
             parse::symbol(Symbol::Let),
@@ -387,7 +383,7 @@ fn parse_variable<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t 
             )),
             parse::symbol(Symbol::Semicolon),
         )),
-        |(_, mutability, name, _, ty, initializer, _)| (name, Declaration::Variable {
+        |(_, mutability, name, _, ty, initializer, _)| (name, Variable {
             ty: Box::new(ty),
             initializer: initializer,
             mutability,
@@ -497,7 +493,7 @@ fn parse_statement<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Stat
 } // fn parse_statement
 
 /// Function parsing function
-fn parse_function<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
+fn parse_function<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Function)> {
     comb::map(
         comb::all((
             parse::symbol(Symbol::Fn),
@@ -533,7 +529,7 @@ fn parse_function<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (
                 ),
             )),
         )),
-        |(_, name, _, inputs, _, output, implementation)| (name, Declaration::Function {
+        |(_, name, _, inputs, _, output, implementation)| (name, Function {
             inputs,
             output,
             implementation,
@@ -542,7 +538,7 @@ fn parse_function<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (
 } // fn parse_function
 
 /// Structure parsing function
-fn parse_structure<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
+fn parse_structure<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Structure)> {
     comb::map(
         comb::all((
             parse::symbol(Symbol::Struct),
@@ -563,15 +559,12 @@ fn parse_structure<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], 
             ),
             parse::symbol(Symbol::CurlyBrClose),
         )),
-        |(_, name, _, elements, _)| (
-            name,
-            Declaration::Structure { elements }
-        )
+        |(_, name, _, elements, _)| (name, Structure { elements })
     )(tokens)
 } // fn parse_structure
 
 /// Enumeration declaration parsing function
-fn parse_enumeration<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
+fn parse_enumeration<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Enumeration)> {
     comb::map(
         comb::all((
             parse::symbol(Symbol::Enum),
@@ -600,16 +593,31 @@ fn parse_enumeration<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>]
             ),
             parse::symbol(Symbol::CurlyBrClose),
         )),
-        |(_, name, _, variants, _)| (name, Declaration::Enumeration { variants })
+        |(_, name, _, variants, _)| (
+            name,
+            Enumeration { variants }
+        )
     )(tokens)
 } // fn parse_enumeration
 
 fn parse_declaration<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
     comb::any((
-        parse_function,
-        parse_variable,
-        parse_structure,
-        parse_enumeration,
+        comb::map(
+            parse_function,
+            |(name, func)| (name, Declaration::Function(func))
+        ),
+        comb::map(
+            parse_variable,
+            |(name, var)| (name, Declaration::Variable(var))
+        ),
+        comb::map(
+            parse_structure,
+            |(name, str)| (name, Declaration::Structure(str))
+        ),
+        comb::map(
+            parse_enumeration,
+            |(name, en)| (name, Declaration::Enumeration(en))
+        ),
     ))(tl)
 }
 
