@@ -7,7 +7,6 @@ mod display;
 
 pub use operator::*;
 
-use std::collections::HashMap;
 use comb::PResult;
 use crate::lexer::{Literal, Symbol, Token};
 use expression::parse_expression;
@@ -353,7 +352,7 @@ pub enum Declaration {
 #[derive(Debug)]
 pub struct Module {
     /// Declaration set
-    pub declarations: HashMap<String, Declaration>,
+    pub declarations: Vec<(String, Declaration)>,
 } // struct Module
 
 /// Variable parsing function
