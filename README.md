@@ -14,11 +14,11 @@ As we know, Rust language removed all annoying excess functionality from C++ (ob
 
 ### Just fun fact
 
-This improvements actually resulted a fun thing: Ka language is quite same with C with dietic portion of syntactic sugar added.
+This improvements actually resulted a fun thing: Ka is just C with Rust-like syntax and dietic portion of syntactic sugar added.
 
 # Standard library
 
-There is no standard library for Ka language yet :(
+There is no standard library for Ka yet :(
 
 # Compiler
 
