@@ -1,0 +1,10 @@
+Create defined/undefined symbol table for proper AST type lowering symbol resolving
+
+Check AST for doing TIR work ('forgetting' about symbols with duplicate names, as example)
+
+Do something with AST and Lexer error handling (e.g. fix comb crate)
+
+Move 'if' and 'while' constructions to expression from statement
+    Somehow learn to parse not semicolon-terminated expressions
+
+Transform lexer to stream (abstract slice by streams, spans, etc.)
