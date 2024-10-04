@@ -8,3 +8,5 @@ Move 'if' and 'while' constructions to expression from statement
     Somehow learn to parse not semicolon-terminated expressions
 
 Transform lexer to stream (abstract slice by streams, spans, etc.)
+
+Refactor ...Type names to ...Ty names (remove 'type' word) from project terminology

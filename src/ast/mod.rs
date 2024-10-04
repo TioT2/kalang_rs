@@ -8,7 +8,7 @@ mod display;
 pub use operator::*;
 
 use comb::PResult;
-use crate::lexer::{Literal, Symbol, Token};
+use crate::lexer;
 use expression::parse_expression;
 
 /// Variable mutability
@@ -356,18 +356,18 @@ pub struct Module {
 } // struct Module
 
 /// Variable parsing function
-fn parse_variable<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Variable)> {
+fn parse_variable<'t>(tl: &'t [lexer::Token<'t>]) -> PResult<'t, &'t [lexer::Token<'t>], (&'t str, Variable)> {
     comb::map(
         comb::all((
-            parse::symbol(Symbol::Let),
+            parse::symbol(lexer::Symbol::Let),
             parse::mutability,
             parse::ident,
-            parse::symbol(Symbol::Colon),
+            parse::symbol(lexer::Symbol::Colon),
             parse::ty,
             comb::any((
                 comb::map(
                     comb::all((
-                        parse::symbol(Symbol::Equal),
+                        parse::symbol(lexer::Symbol::Equal),
                         comb::map(
                             parse_expression,
                             Box::new
@@ -380,7 +380,7 @@ fn parse_variable<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t 
                     |_| None,
                 ),
             )),
-            parse::symbol(Symbol::Semicolon),
+            parse::symbol(lexer::Symbol::Semicolon),
         )),
         |(_, mutability, name, _, ty, initializer, _)| (name, Variable {
             ty: Box::new(ty),
@@ -390,10 +390,10 @@ fn parse_variable<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t 
     )(tl)
 } // fn parse_variable
 
-fn parse_block<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Block> {
+fn parse_block<'t>(tl: &'t [lexer::Token<'t>]) -> PResult<'t, &'t [lexer::Token<'t>], Block> {
     comb::map(
         comb::all((
-            parse::symbol(Symbol::CurlyBrOpen),
+            parse::symbol(lexer::Symbol::CurlyBrOpen),
             comb::repeat(
                 parse_statement,
                 Vec::new,
@@ -402,7 +402,7 @@ fn parse_block<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Block> {
                     vec
                 }
             ),
-            parse::symbol(Symbol::CurlyBrClose),
+            parse::symbol(lexer::Symbol::CurlyBrClose),
         )),
         |(_, statements, _)| Block {
             statements,
@@ -411,16 +411,16 @@ fn parse_block<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Block> {
     )(tl)
 }
 
-fn parse_statement<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Statement> {
+fn parse_statement<'t>(tl: &'t [lexer::Token<'t>]) -> PResult<'t, &'t [lexer::Token<'t>], Statement> {
     let stmt_if_else = comb::map(
         comb::all((
-            parse::symbol(Symbol::If),
+            parse::symbol(lexer::Symbol::If),
             parse_expression,
             parse_block,
             comb::or(
                 comb::map(
                     comb::all((
-                        parse::symbol(Symbol::Else),
+                        parse::symbol(lexer::Symbol::Else),
                         parse_block,
                     )),
                     |(_, block)| Some(block),
@@ -437,7 +437,7 @@ fn parse_statement<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Stat
 
     let stmt_while = comb::map(
         comb::all((
-            parse::symbol(Symbol::While),
+            parse::symbol(lexer::Symbol::While),
             parse_expression,
             parse_block,
         )),
@@ -450,7 +450,7 @@ fn parse_statement<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Stat
     let stmt_expr = comb::map(
         comb::all((
             parse_expression,
-            parse::symbol(Symbol::Semicolon),
+            parse::symbol(lexer::Symbol::Semicolon),
         )),
         |(expr, _)| Statement::Expression { expr: Box::new(expr) }
     );
@@ -465,9 +465,9 @@ fn parse_statement<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Stat
 
     let stmt_return = comb::map(
         comb::all((
-            parse::symbol(Symbol::Return),
+            parse::symbol(lexer::Symbol::Return),
             parse_expression,
-            parse::symbol(Symbol::Semicolon),
+            parse::symbol(lexer::Symbol::Semicolon),
         )),
         |(_, expression, _)| Statement::Return {
             expression: Box::new(expression)
@@ -492,34 +492,34 @@ fn parse_statement<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], Stat
 } // fn parse_statement
 
 /// Function parsing function
-fn parse_function<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Function)> {
+fn parse_function<'t>(tokens: &'t [lexer::Token<'t>]) -> PResult<'t, &'t [lexer::Token<'t>], (&'t str, Function)> {
     comb::map(
         comb::all((
-            parse::symbol(Symbol::Fn),
+            parse::symbol(lexer::Symbol::Fn),
             parse::ident,
-            parse::symbol(Symbol::RoundBrOpen),
+            parse::symbol(lexer::Symbol::RoundBrOpen),
             comb::repeat_with_separator(
                 comb::all((
                     parse::mutability,
                     parse::ident,
-                    parse::symbol(Symbol::Colon),
+                    parse::symbol(lexer::Symbol::Colon),
                     parse::ty,
                 )),
-                parse::symbol(Symbol::Comma),
+                parse::symbol(lexer::Symbol::Comma),
                 Vec::new,
                 |mut vec, (mutability, name, _, type_name)| {
                     vec.push((name.to_string(), mutability, type_name));
                     vec
                 }
             ),
-            parse::symbol(Symbol::RoundBrClose),
+            parse::symbol(lexer::Symbol::RoundBrClose),
             comb::map(
                 comb::or(parse::ty, || Type::Primitive(PrimitiveType::Void)),
                 Box::new
             ),
             comb::any((
                 comb::map(
-                    parse::symbol(Symbol::Semicolon),
+                    parse::symbol(lexer::Symbol::Semicolon),
                     |_| None,
                 ),
                 comb::map(
@@ -537,45 +537,45 @@ fn parse_function<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (
 } // fn parse_function
 
 /// Structure parsing function
-fn parse_structure<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Structure)> {
+fn parse_structure<'t>(tokens: &'t [lexer::Token<'t>]) -> PResult<'t, &'t [lexer::Token<'t>], (&'t str, Structure)> {
     comb::map(
         comb::all((
-            parse::symbol(Symbol::Struct),
+            parse::symbol(lexer::Symbol::Struct),
             parse::ident,
-            parse::symbol(Symbol::CurlyBrOpen),
+            parse::symbol(lexer::Symbol::CurlyBrOpen),
             comb::repeat_with_separator(
                 comb::all((
                     comb::map(parse::ident, str::to_string),
-                    parse::symbol(Symbol::Colon),
+                    parse::symbol(lexer::Symbol::Colon),
                     parse::ty,
                 )),
-                parse::symbol(Symbol::Comma),
+                parse::symbol(lexer::Symbol::Comma),
                 Vec::new,
                 |mut vec, (name, _, ty)| {
                     vec.push((name, ty));
                     vec
                 }
             ),
-            parse::symbol(Symbol::CurlyBrClose),
+            parse::symbol(lexer::Symbol::CurlyBrClose),
         )),
         |(_, name, _, elements, _)| (name, Structure { elements })
     )(tokens)
 } // fn parse_structure
 
 /// Enumeration declaration parsing function
-fn parse_enumeration<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Enumeration)> {
+fn parse_enumeration<'t>(tokens: &'t [lexer::Token<'t>]) -> PResult<'t, &'t [lexer::Token<'t>], (&'t str, Enumeration)> {
     comb::map(
         comb::all((
-            parse::symbol(Symbol::Enum),
+            parse::symbol(lexer::Symbol::Enum),
             parse::ident,
-            parse::symbol(Symbol::CurlyBrOpen),
+            parse::symbol(lexer::Symbol::CurlyBrOpen),
             comb::repeat_with_separator(
                 comb::all((
                     comb::map(parse::ident, str::to_string),
                     comb::or(
                         comb::map(
                             comb::all((
-                                parse::symbol(Symbol::Equal),
+                                parse::symbol(lexer::Symbol::Equal),
                                 parse_expression,
                             )),
                             |(_, v)| Some(Box::new(v))
@@ -583,14 +583,14 @@ fn parse_enumeration<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>]
                         || Option::<Box<Expression>>::None,
                     )
                 )),
-                parse::symbol(Symbol::Comma),
+                parse::symbol(lexer::Symbol::Comma),
                 Vec::new,
                 |mut vec, (name, explicit_index)| {
                     vec.push((name, explicit_index));
                     vec
                 }
             ),
-            parse::symbol(Symbol::CurlyBrClose),
+            parse::symbol(lexer::Symbol::CurlyBrClose),
         )),
         |(_, name, _, variants, _)| (
             name,
@@ -599,7 +599,10 @@ fn parse_enumeration<'t>(tokens: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>]
     )(tokens)
 } // fn parse_enumeration
 
-fn parse_declaration<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&'t str, Declaration)> {
+fn parse_declaration<'t>(
+    tl: &'t [lexer::Token<'t>]
+) -> PResult<'t, &'t [lexer::Token<'t>], (&'t str, Declaration)> {
+
     comb::any((
         comb::map(
             parse_function,
@@ -622,7 +625,7 @@ fn parse_declaration<'t>(tl: &'t [Token<'t>]) -> PResult<'t, &'t [Token<'t>], (&
 
 impl Module {
     /// Module from token list parsing function
-    pub fn parse(tokens: &[Token]) -> Option<Module> {
+    pub fn parse(tokens: &[lexer::Token]) -> Option<Module> {
 
         let declarations = comb::collect_repeat(
             comb::map(

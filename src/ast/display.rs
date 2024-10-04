@@ -1,3 +1,5 @@
+use crate::lexer;
+
 use super::*;
 
 impl std::fmt::Display for Module {
@@ -201,7 +203,7 @@ impl std::fmt::Display for Expression {
     }
 }
 
-impl std::fmt::Display for Literal {
+impl<'t> std::fmt::Display for lexer::Literal<'t> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Floating { number, postfix } => write!(f, "{}{}", number, postfix),
