@@ -91,6 +91,85 @@ fn ident<'t>(str: &'t str) -> PResult<'t, &'t str, &'t str> {
     ))
 } // fn ident
 
+/// Symbol parsing function
+fn symbol<'t>(string: &'t str) -> PResult<'t, &'t str, Symbol> {
+    macro_rules! match_start {
+        {$($name: expr => $value: expr)*} => {
+            'match_start: {
+                Ok({
+                    $(
+                        if string.starts_with($name) {
+                            (&string[$name.len()..], $value)
+                        } else
+                    )*
+                    {
+                        break 'match_start Err(string);
+                    }
+                })
+            }
+        };
+    }
+
+    match_start! {
+        "fn"     => Symbol::Fn
+        "let"    => Symbol::Let
+        "export" => Symbol::Export
+        "as"     => Symbol::As
+        "enum"   => Symbol::Enum
+        "struct" => Symbol::Struct
+        "mut"    => Symbol::Mut
+        "const"  => Symbol::Const
+        "if"     => Symbol::If
+        "else"   => Symbol::Else
+        "while"  => Symbol::While
+        "return" => Symbol::Return
+        "<<="    => Symbol::ShlEqual
+        ">>="    => Symbol::ShrEqual
+        "<="     => Symbol::TriBrOpenEqual
+        ">="     => Symbol::TriBrCloseEqual
+        "<<"     => Symbol::Shl
+        ">>"     => Symbol::Shr
+        "<"      => Symbol::TriBrOpen
+        ">"      => Symbol::TriBrClose
+        "&&="    => Symbol::DoubleAmpersandEqual
+        "||="    => Symbol::DoublePipelineEqual
+        "|="     => Symbol::PipelineEqual
+        "&="     => Symbol::AmpersandEqual
+        "^="     => Symbol::CircumflexEqual
+        "&&"     => Symbol::DoubleAmpersand
+        "||"     => Symbol::DoublePipeline
+        "|"      => Symbol::Pipeline
+        "&"      => Symbol::Ampersand
+        "^"      => Symbol::Circumflex
+        "::"     => Symbol::DoubleColon
+        "."      => Symbol::Dot
+        ";"      => Symbol::Semicolon
+        ":"      => Symbol::Colon
+        "#"      => Symbol::Hash
+        ","      => Symbol::Comma
+        "->"     => Symbol::Arrow
+        "=>"     => Symbol::FatArrow
+        "=="     => Symbol::DoubleEqual
+        "!="     => Symbol::ExclamationEqual
+        "+="     => Symbol::PlusEqual
+        "-="     => Symbol::MinusEqual
+        "/="     => Symbol::SlashEqual
+        "*="     => Symbol::AsteriskEqual
+        "="      => Symbol::Equal
+        "!"      => Symbol::Exclamation
+        "+"      => Symbol::Plus
+        "-"      => Symbol::Minus
+        "/"      => Symbol::Slash
+        "*"      => Symbol::Asterisk
+        "("      => Symbol::RoundBrOpen
+        ")"      => Symbol::RoundBrClose
+        "["      => Symbol::SquareBrOpen
+        "]"      => Symbol::SquareBrClose
+        "{"      => Symbol::CurlyBrOpen
+        "}"      => Symbol::CurlyBrClose
+    }
+} // fn symbol
+
 /// Character with escape sequence parsing function
 fn any_escape_char<'t>(str: &'t str) -> PResult<'t, &'t str, (char, CharType)> {
     let mut chs = str.chars();
@@ -122,7 +201,6 @@ fn any_escape_char<'t>(str: &'t str) -> PResult<'t, &'t str, (char, CharType)> {
     }
 } // fn any_escape_char
 
-
 impl<'t> Iterator for TokenIterator<'t> {
     type Item = Token<'t>;
 
@@ -130,7 +208,7 @@ impl<'t> Iterator for TokenIterator<'t> {
 
         /// Numeric literal postfix parsing function
         fn numeric_literal_postfix<'t>(str: &'t str) -> PResult<'t, &'t str, &'t str> {
-            ident(str)
+            comb::or(ident, || &str[0..0])(str)
         } // fn numeric_literal_postfix
 
         let literal = comb::any((
@@ -175,80 +253,6 @@ impl<'t> Iterator for TokenIterator<'t> {
                 )),
                 |(_, (ch, _), _)| Literal::Char(ch),
             ),
-        ));
-
-        let symbol = comb::any((
-            comb::any((
-                comb::value(comb::literal("fn"    ), Symbol::Fn    ),
-                comb::value(comb::literal("let"   ), Symbol::Let   ),
-                comb::value(comb::literal("export"), Symbol::Export),
-                comb::value(comb::literal("as"    ), Symbol::As    ),
-                comb::value(comb::literal("enum"  ), Symbol::Enum  ),
-                comb::value(comb::literal("struct"), Symbol::Struct),
-                comb::value(comb::literal("mut"   ), Symbol::Mut   ),
-                comb::value(comb::literal("const" ), Symbol::Const ),
-                comb::value(comb::literal("if"    ), Symbol::If    ),
-                comb::value(comb::literal("else"  ), Symbol::Else  ),
-                comb::value(comb::literal("while" ), Symbol::While ),
-                comb::value(comb::literal("return"), Symbol::Return),
-            )),
-            comb::any((
-                comb::value(comb::literal("<<="), Symbol::ShlEqual),
-                comb::value(comb::literal(">>="), Symbol::ShrEqual),
-                comb::value(comb::literal("<=" ), Symbol::TriBrOpenEqual),
-                comb::value(comb::literal(">=" ), Symbol::TriBrCloseEqual),
-
-                comb::value(comb::literal("<<" ), Symbol::Shl),
-                comb::value(comb::literal(">>" ), Symbol::Shr),
-                comb::value(comb::literal("<"  ), Symbol::TriBrOpen),
-                comb::value(comb::literal(">"  ), Symbol::TriBrClose),
-            )),
-            comb::any((
-                comb::value(comb::literal("&&="), Symbol::DoubleAmpersandEqual),
-                comb::value(comb::literal("||="), Symbol::DoublePipelineEqual),
-                comb::value(comb::literal("|=" ), Symbol::PipelineEqual),
-                comb::value(comb::literal("&=" ), Symbol::AmpersandEqual),
-                comb::value(comb::literal("^=" ), Symbol::CircumflexEqual),
-
-                comb::value(comb::literal("&&" ), Symbol::DoubleAmpersand),
-                comb::value(comb::literal("||" ), Symbol::DoublePipeline),
-                comb::value(comb::literal("|"  ), Symbol::Pipeline),
-                comb::value(comb::literal("&"  ), Symbol::Ampersand),
-                comb::value(comb::literal("^"  ), Symbol::Circumflex),
-            )),
-            comb::any((
-                comb::value(comb::literal("::" ), Symbol::DoubleColon),
-                comb::value(comb::literal("."  ), Symbol::Dot),
-                comb::value(comb::literal(";"  ), Symbol::Semicolon),
-                comb::value(comb::literal(":"  ), Symbol::Colon),
-                comb::value(comb::literal("#"  ), Symbol::Hash),
-                comb::value(comb::literal(","  ), Symbol::Comma),
-                comb::value(comb::literal("->" ), Symbol::Arrow),
-                comb::value(comb::literal("=>" ), Symbol::FatArrow),
-            )),
-            comb::any((
-                comb::value(comb::literal("==" ), Symbol::DoubleEqual),
-                comb::value(comb::literal("!=" ), Symbol::ExclamationEqual),
-                comb::value(comb::literal("+=" ), Symbol::PlusEqual),
-                comb::value(comb::literal("-=" ), Symbol::MinusEqual),
-                comb::value(comb::literal("/=" ), Symbol::SlashEqual),
-                comb::value(comb::literal("*=" ), Symbol::AsteriskEqual),
-
-                comb::value(comb::literal("="  ), Symbol::Equal),
-                comb::value(comb::literal("!"  ), Symbol::Exclamation),
-                comb::value(comb::literal("+"  ), Symbol::Plus),
-                comb::value(comb::literal("-"  ), Symbol::Minus),
-                comb::value(comb::literal("/"  ), Symbol::Slash),
-                comb::value(comb::literal("*"  ), Symbol::Asterisk),
-            )),
-            comb::any((
-                comb::value(comb::literal("("  ), Symbol::RoundBrOpen),
-                comb::value(comb::literal(")"  ), Symbol::RoundBrClose),
-                comb::value(comb::literal("["  ), Symbol::SquareBrOpen),
-                comb::value(comb::literal("]"  ), Symbol::SquareBrClose),
-                comb::value(comb::literal("{"  ), Symbol::CurlyBrOpen),
-                comb::value(comb::literal("}"  ), Symbol::CurlyBrClose),
-            )),
         ));
 
         let comment = comb::any((

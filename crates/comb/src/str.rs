@@ -1,6 +1,3 @@
-
-
-
 use crate::{PResult, Parser};
 
 /// String literal parser
